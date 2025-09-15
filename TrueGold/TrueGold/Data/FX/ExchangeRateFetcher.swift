@@ -1,21 +1,15 @@
 //
 //  ExchangeRateFetcher.swift
-//  tilogold
+//  TrueGold
 //
-//  Created by Tilo Delau on 2025-06-12.
-// ❗ This class handles ONLY fiat exchange rates.
-// Does NOT perform any gold price or purity logic.
+//  Handles ONLY fiat exchange rates (no metal logic).
+//  Fallback order:
+//    1) Live API (if .live or .cached)
+//    2) Cached (if present)
+//    3) Bundled JSON (if .bundled or live fails)
+//    4) Hardcoded table (last resort / .hardcoded)
 //
-//  💱 ExchangeRateFetcher handles multi-layered fetching of currency exchange rates.
-//  It supports live API calls, local cache, bundled JSON fallback, and hardcoded defaults.
-//
-//  Fallback priority:
-//     1. ✅ Live API (via open.er-api.com)
-//     2. 📦 Cached data from UserDefaults (if not expired)
-//     3. 🗂 Bundled JSON file (`default_exchange_rates.json` in app bundle)
-//     4. 🧪 Hardcoded fallback rates (only minimal currency set)
-//
-//  Configuration is driven by `AppConfig`, which links to `TestPhase` for automated testing.
+//  Configuration is driven by `TestPhase` for automated testing.
 //
 //  🔄 safeConvert(amount:from:to:) converts between any two currencies,
 //     falling back to default ratios (1.0 or 2.0) if rates are missing to avoid crash.
@@ -29,7 +23,7 @@ class ExchangeRateFetcher {
 
     private let baseURL = "https://open.er-api.com/v6/latest/USD"
     private let cacheKey = "ExchangeRateCache_ALL"
-    private let cacheExpiryHours: Double = AppConfig.forceLiveExchangeRate ? 0 : 12
+    private let cacheExpiryHours: Double = TestPhase.forceLiveExchangeRate ? 0 : 12
 
     private let userDefaults = UserDefaults.standard
     private init() {}
@@ -50,7 +44,7 @@ class ExchangeRateFetcher {
     // MARK: - Internal Fetch Logic
 
     private func fetchRates(completion: @escaping (ExchangeRate) -> Void) {
-        if AppConfig.useMockData {
+        if TestPhase.useMockData {
             Logger.log("ExchangeRateFetcher", "🧪 Using hardcoded MOCK data")
             completion(Self.fallbackRates())
             return
@@ -183,3 +177,4 @@ struct ExchangeRate {
     }
     
 }
+

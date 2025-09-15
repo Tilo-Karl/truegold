@@ -1,5 +1,5 @@
 enum DI {
     static var marketRepo: MarketRepository {
-        AppConfig.useMockData ? MockMarketRepository() : LiveMarketRepository()
+        TestPhase.useMockData ? MockMarketRepository() : LiveMarketRepository()
     }
 }

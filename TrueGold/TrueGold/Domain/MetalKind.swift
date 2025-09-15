@@ -10,3 +10,4 @@ enum MetalKind: String, CaseIterable, Identifiable {
         }
     }
 }
+
