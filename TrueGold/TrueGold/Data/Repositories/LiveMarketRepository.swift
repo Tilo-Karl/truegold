@@ -16,12 +16,22 @@ struct LiveMarketRepository: MarketRepository {
 
         switch kind {
         case .goldSpot:
-            basePerGram = goldSpotUSDPerGram
-            baseCurrency = "USD"
+            if let usdPerGram = await SwissSpotFetcher.goldUSDPerGram() {
+                basePerGram = usdPerGram
+                baseCurrency = "USD"
+            } else {
+                basePerGram = goldSpotUSDPerGram   // your fallback constant
+                baseCurrency = "USD"
+            }
 
         case .silverSpot:
-            basePerGram = silverSpotUSDPerGram
-            baseCurrency = "USD"
+            if let usdPerGram = await SwissSpotFetcher.silverUSDPerGram() {
+                basePerGram = usdPerGram
+                baseCurrency = "USD"
+            } else {
+                basePerGram = silverSpotUSDPerGram // your fallback constant
+                baseCurrency = "USD"
+            }
 
         case .goldThai965:
             // Prefer live Thai quote (THB per gram). Fallback to 0.965 * spot if API fails.
