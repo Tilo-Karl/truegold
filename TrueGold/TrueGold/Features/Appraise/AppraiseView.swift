@@ -19,13 +19,22 @@ struct AppraiseView: View {
                     Text("Silver").tag(Metal.silver)
                     Text("Thai 96.5%").tag(Metal.thai965)
                 }
-                Picker("Purity", selection: $purity) {
-                    ForEach(Purity.allCases) { p in
-                        Text(p.label).tag(p)
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("Purity", selection: $purity) {
+                        ForEach(Purity.allCases) { p in
+                            Text(p.label).tag(p)
+                        }
+                    }
+
+                    if metal == .thai965 {
+                        Text("Purity fixed at 96.5% for Thai gold.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
                     }
                 }
                 HStack {
-                    TextField("Weight", text: $weight)
+                    TextField("Enter weight", text: $weight)
                         .keyboardType(.decimalPad)
                     Picker("", selection: $unit) {
                         Text("g").tag(Unit.gram)
@@ -86,16 +95,30 @@ struct AppraiseView: View {
                     let grams = (unit == .gram) ? input : input * 15.244
 
                     let kind: MetalKind
+                    let effectiveFactor: Double
                     switch metal {
-                    case .gold:     kind = .goldSpot
-                    case .silver:   kind = .silverSpot
-                    case .thai965:  kind = .goldThai965
+                    case .gold:
+                        if purity == .thai965 {
+                            // Use Thai market source; purity baked-in so do not multiply again
+                            kind = .goldThai965
+                            effectiveFactor = 1.0
+                        } else {
+                            kind = .goldSpot
+                            effectiveFactor = purity.factor(for: .gold)
+                        }
+                    case .silver:
+                        kind = .silverSpot
+                        effectiveFactor = purity.factor(for: .silver)
+                    case .thai965:
+                        // If user picked Thai as a separate metal, behave the same
+                        kind = .goldThai965
+                        effectiveFactor = 1.0
                     }
 
                     Task {
                         await viewModel.appraise(
                             kind: kind,
-                            purityFactor: purity.factor(for: metal),
+                            purityFactor: effectiveFactor,
                             grams: grams,
                             currency: currencyCode
                         )
@@ -129,11 +152,12 @@ private enum Unit: String, CaseIterable, Identifiable {
 }
 
 private enum Purity: String, CaseIterable, Identifiable {
-    case k24, k22, k21, k20, k18, k14, k9
+    case thai965, k24, k22, k21, k20, k18, k14, k9
 
     var id: String { rawValue }
     var label: String {
         switch self {
+        case .thai965: return "Thai 96.5%"
         case .k24: return "24K (99.9%)"
         case .k22: return "22K (91.7%)"
         case .k21: return "21K (87.5%)"
@@ -144,13 +168,13 @@ private enum Purity: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Purity factor by metal. For `.thai965` we ignore this (baked in).
+    /// Default purity factors when we are not using a special market source.
+    /// For `.thai965` we typically switch to the Thai market source and set factor = 1.0 at call site.
     func factor(for metal: Metal) -> Double {
         switch metal {
-        case .thai965:
-            return 0.965
         case .gold:
             switch self {
+            case .thai965: return 0.965   // not used if we switch to Thai source
             case .k24: return 0.999
             case .k22: return 0.917
             case .k21: return 0.875
@@ -161,6 +185,8 @@ private enum Purity: String, CaseIterable, Identifiable {
             }
         case .silver:
             return 0.999
+        case .thai965:
+            return 0.965
         }
     }
 }
