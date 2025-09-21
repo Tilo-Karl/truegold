@@ -6,6 +6,8 @@ struct MockMarketRepository: MarketRepository {
         case .goldSpot: return 2000
         case .goldThai965: return 2200
         case .silverSpot: return 25
+        case .platinumSpot: return 30
+        case .palladiumSpot: return 50
         }
     }
 }

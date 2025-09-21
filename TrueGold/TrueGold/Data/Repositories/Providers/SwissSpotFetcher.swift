@@ -30,39 +30,55 @@ enum SwissSpotFetcher {
     private static let base = "https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument"
     private static let gramsPerTroyOunce = 31.1034768
 
-    /// Returns midpoint spot **USD per troy ounce** for the given metal symbol ("XAU", "XAG", …)
-    static func midUSDPerOunce(symbol: String) async -> Double? {
-        let urlStr = "\(base)/\(symbol)/USD"
-        guard let url = URL(string: urlStr) else { return nil }
+    /// Returns midpoint spot **per troy ounce** for `symbol` ("XAU", "XAG", "XPT", "XPD") quoted in `quoteCcy` (default "USD").
+    static func midPerOunce(symbol: String, quoteCcy: String = "USD") async -> Double? {
+        let urlStr = "\(base)/\(symbol)/\(quoteCcy)"
+        guard let url = URL(string: urlStr) else {
+            Logger.log("SwissSpotFetcher", "⚠️ Bad URL: \(urlStr)")
+            return nil
+        }
+
+        // Short, explicit networking config per call
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 8
+        cfg.timeoutIntervalForResource = 8
+        cfg.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        cfg.waitsForConnectivity = false
+        let session = URLSession(configuration: cfg)
+
+        var req = URLRequest(url: url)
+        req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        req.timeoutInterval = 8
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            let (data, resp) = try await session.data(for: req)
+            guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
+                let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+                Logger.log("SwissSpotFetcher", "❌ HTTP \(code) for \(symbol)/\(quoteCcy)")
+                return nil
+            }
 
             let platforms = try JSONDecoder().decode([SQPlatformQuote].self, from: data)
-            guard let best = pickBest(platforms: platforms) else { return nil }
+            guard let best = pickBest(platforms: platforms) else {
+                Logger.log("SwissSpotFetcher", "❌ No spreadProfilePrices in response")
+                return nil
+            }
 
             let mid = (best.bid + best.ask) / 2.0
             return mid
         } catch {
-            print("SwissquoteSpotFetcher error:", error.localizedDescription)
+            Logger.log("SwissSpotFetcher", "❌ fetch error: \(error.localizedDescription)")
             return nil
         }
     }
 
-    /// Convenience: **USD per gram** for gold (XAU)
-    static func goldUSDPerGram() async -> Double? {
-        guard let perOz = await midUSDPerOunce(symbol: "XAU") else { return nil }
+    /// Returns **per gram** for `symbol` ("XAU", "XAG", "XPT", "XPD") quoted in `quoteCcy` (default "USD").
+    static func perGram(symbol: String, quoteCcy: String = "USD") async -> Double? {
+        guard let perOz = await midPerOunce(symbol: symbol, quoteCcy: quoteCcy) else { return nil }
         return perOz / gramsPerTroyOunce
     }
 
-    /// Convenience: **USD per gram** for silver (XAG)
-    static func silverUSDPerGram() async -> Double? {
-        guard let perOz = await midUSDPerOunce(symbol: "XAG") else { return nil }
-        return perOz / gramsPerTroyOunce
-    }
-
-    // Pick the tightest spread profile: prefer elite > prime > premium > standard > first.
+    // Pick the tightest spread profile: prefer elite > prime > premium > standard > first available.
     private static func pickBest(platforms: [SQPlatformQuote]) -> SQPlatformQuote.SpreadProfilePrice? {
         let preference = ["elite", "prime", "premium", "standard"]
         for p in preference {

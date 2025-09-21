@@ -45,7 +45,8 @@ class ThaiGoldAPIClient {
                     let jewelryBuyString = gold["buy"],
                     let rawBarSell = Double(barSellString.replacingOccurrences(of: ",", with: "")),
                     let rawBarBuy = Double(barBuyString.replacingOccurrences(of: ",", with: "")),
-                    let rawJewelrySell = Double(jewelrySellString.replacingOccurrences(of: ",", with: "")),
+                    // Good to know this exists, maybe we use it one day.
+                    //let rawJewelrySell = Double(jewelrySellString.replacingOccurrences(of: ",", with: "")),
                     let rawJewelryBuy = Double(jewelryBuyString.replacingOccurrences(of: ",", with: ""))
                 {
                     // 🟡 IMPORTANT: The API uses reversed naming ("buy" is what shop pays, "sell" is what shop gets).

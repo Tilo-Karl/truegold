@@ -56,6 +56,19 @@ class ExchangeRateFetcher {
             return
         }
 
+        // If offline, fail fast and use fallbacks
+        if !(NetworkMonitor.shared.isOnline) {
+            Logger.log("ExchangeRateFetcher", "🔌 Offline → using cache/bundled/hardcoded")
+            if let cached = self.getCachedRate() {
+                completion(cached)
+            } else if let bundled = self.loadBundledRates() {
+                completion(bundled)
+            } else {
+                completion(Self.fallbackRates())
+            }
+            return
+        }
+
         guard let url = URL(string: baseURL) else {
             Logger.log("ExchangeRateFetcher", "⚠️ Invalid URL – using BUNDLED fallback JSON")
             completion(loadBundledRates() ?? Self.fallbackRates())
@@ -65,7 +78,7 @@ class ExchangeRateFetcher {
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        ShortTimeoutSession.shared.dataTask(with: request) { data, response, error in
             let httpCode = (response as? HTTPURLResponse)?.statusCode ?? -1
             Logger.log("ExchangeRateFetcher", "📡 HTTP status code: \(httpCode)")
 
