@@ -14,40 +14,17 @@ struct AppraiseView: View {
     var body: some View {
         Form {
             Section("Item") {
-                Picker("Metal", selection: $metal) {
-                    Text("Gold").tag(Metal.gold)
-                    Text("Silver").tag(Metal.silver)
-                    Text("Thai 96.5%").tag(Metal.thai965)
-                }
+                metalPicker()
                 VStack(alignment: .leading, spacing: 4) {
-                    Picker("Purity", selection: $purity) {
-                        ForEach(Purity.allCases) { p in
-                            Text(p.label).tag(p)
-                        }
-                    }
-
-                    if metal == .thai965 {
-                        Text("Purity fixed at 96.5% for Thai gold.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 2)
-                    }
+                    purityPicker()
                 }
                 HStack {
                     TextField("Enter weight", text: $weight)
                         .keyboardType(.decimalPad)
-                    Picker("", selection: $unit) {
-                        Text("g").tag(Unit.gram)
-                        Text("baht wt").tag(Unit.thaiBahtWeight)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 160)
+                    unitPicker()
+                        .frame(maxWidth: 160)
                 }
-                Picker("Currency", selection: $currencyCode) {
-                    ForEach(Currency.allCases) { c in
-                        Text("\(c.flagEmoji) \(c.code)").tag(c.code)
-                    }
-                }
+                currencyPicker()
             }
 
             Section("Result") {
@@ -131,6 +108,44 @@ struct AppraiseView: View {
         }
         .navigationTitle("Appraise")
     }
+
+    // MARK: - Subviews (pickers only; layout stays in body)
+
+    @ViewBuilder
+    private func metalPicker() -> some View {
+        Picker("Metal", selection: $metal) {
+            Text("Gold").tag(Metal.gold)
+            Text("Silver").tag(Metal.silver)
+            Text("23K Thai (96.5%)").tag(Metal.thai965)
+        }
+    }
+
+    @ViewBuilder
+    private func purityPicker() -> some View {
+        Picker("Purity", selection: $purity) {
+            ForEach(Purity.allCases) { p in
+                Text(p.label).tag(p)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func unitPicker() -> some View {
+        Picker("", selection: $unit) {
+            Text("g").tag(Unit.gram)
+            Text("baht wt").tag(Unit.thaiBahtWeight)
+        }
+        .pickerStyle(.segmented)
+    }
+
+    @ViewBuilder
+    private func currencyPicker() -> some View {
+        Picker("Currency", selection: $currencyCode) {
+            ForEach(Currency.allCases) { c in
+                Text("\(c.flagEmoji) \(c.code)").tag(c.code)
+            }
+        }
+    }
 }
 
 // MARK: - Local helpers (kept private to this file)
@@ -141,7 +156,7 @@ private enum Metal: String, CaseIterable, Identifiable {
         switch self {
         case .gold: return "Gold"
         case .silver: return "Silver"
-        case .thai965: return "Thai 96.5%"
+        case .thai965: return "23K Thai (96.5%)"
         }
     }
 }
@@ -152,12 +167,12 @@ private enum Unit: String, CaseIterable, Identifiable {
 }
 
 private enum Purity: String, CaseIterable, Identifiable {
-    case thai965, k24, k22, k21, k20, k18, k14, k9
+    case k24, thai965, k22, k21, k20, k18, k14, k9
 
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .thai965: return "Thai 96.5%"
+        case .thai965: return "23K Thai (96.5%)"
         case .k24: return "24K (99.9%)"
         case .k22: return "22K (91.7%)"
         case .k21: return "21K (87.5%)"
