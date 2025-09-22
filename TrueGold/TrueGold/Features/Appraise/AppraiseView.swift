@@ -69,7 +69,15 @@ struct AppraiseView: View {
                         viewModel.result = nil
                         return
                     }
-                    let grams = (unit == .gram) ? input : input * 15.244
+                    let grams: Double
+                    switch unit {
+                    case .gram:
+                        grams = input
+                    case .thaiBahtWeight:
+                        grams = input * 15.244
+                    case .ozt:
+                        grams = input * 31.1034768
+                    }
 
                     let kind: MetalKind
                     let effectiveFactor: Double
@@ -86,10 +94,6 @@ struct AppraiseView: View {
                     case .silver:
                         kind = .silverSpot
                         effectiveFactor = purity.factor(for: .silver)
-                    case .thai965:
-                        // If user picked Thai as a separate metal, behave the same
-                        kind = .goldThai965
-                        effectiveFactor = 1.0
                     }
 
                     Task {
@@ -101,8 +105,12 @@ struct AppraiseView: View {
                         )
                     }
                 } label: {
-                    Label("Appraise", systemImage: "scalemass")
+                    Label("Appraise", systemImage: "scalemass.fill")
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .colorInvert()
                 }
+                //.frame(maxWidth: .infinity)
                 .buttonStyle(.borderedProminent)
             }
         }
@@ -112,10 +120,16 @@ struct AppraiseView: View {
     // MARK: - Subviews (pickers only; layout stays in body)
 
     private func metalPicker() -> some View {
-        Picker("Metal", selection: $metal) {
-            Text("Gold").tag(Metal.gold)
-            Text("Silver").tag(Metal.silver)
-            Text("23K Thai (96.5%)").tag(Metal.thai965)
+        HStack {
+            Text("Metal")
+            Spacer()
+            Picker("", selection: $metal) {
+                Text("Gold").tag(Metal.gold)
+                Text("Silver").tag(Metal.silver)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 240)
         }
     }
 
@@ -131,6 +145,7 @@ struct AppraiseView: View {
         Picker("", selection: $unit) {
             Text("g").tag(Unit.gram)
             Text("baht wt").tag(Unit.thaiBahtWeight)
+            Text("ozt").tag(Unit.ozt)
         }
         .pickerStyle(.segmented)
     }
@@ -146,19 +161,18 @@ struct AppraiseView: View {
 
 // MARK: - Local helpers (kept private to this file)
 private enum Metal: String, CaseIterable, Identifiable {
-    case gold, silver, thai965
+    case gold, silver
     var id: String { rawValue }
     var title: String {
         switch self {
         case .gold: return "Gold"
         case .silver: return "Silver"
-        case .thai965: return "23K Thai (96.5%)"
         }
     }
 }
 
 private enum Unit: String, CaseIterable, Identifiable {
-    case gram, thaiBahtWeight
+    case gram, thaiBahtWeight, ozt
     var id: String { rawValue }
 }
 
@@ -196,8 +210,6 @@ private enum Purity: String, CaseIterable, Identifiable {
             }
         case .silver:
             return 0.999
-        case .thai965:
-            return 0.965
         }
     }
 }
