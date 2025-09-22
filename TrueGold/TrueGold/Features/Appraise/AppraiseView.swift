@@ -111,7 +111,6 @@ struct AppraiseView: View {
 
     // MARK: - Subviews (pickers only; layout stays in body)
 
-    @ViewBuilder
     private func metalPicker() -> some View {
         Picker("Metal", selection: $metal) {
             Text("Gold").tag(Metal.gold)
@@ -120,7 +119,6 @@ struct AppraiseView: View {
         }
     }
 
-    @ViewBuilder
     private func purityPicker() -> some View {
         Picker("Purity", selection: $purity) {
             ForEach(Purity.allCases) { p in
@@ -129,7 +127,6 @@ struct AppraiseView: View {
         }
     }
 
-    @ViewBuilder
     private func unitPicker() -> some View {
         Picker("", selection: $unit) {
             Text("g").tag(Unit.gram)
@@ -138,7 +135,6 @@ struct AppraiseView: View {
         .pickerStyle(.segmented)
     }
 
-    @ViewBuilder
     private func currencyPicker() -> some View {
         Picker("Currency", selection: $currencyCode) {
             ForEach(Currency.allCases) { c in
