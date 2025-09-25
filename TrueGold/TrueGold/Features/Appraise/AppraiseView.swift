@@ -17,29 +17,43 @@ struct AppraiseView: View {
                 HStack {
                     Text("Metal")
                     Spacer()
-                    metalPicker()              // picker hides its own label
+                    metalPicker()
                 }
 
                 // Purity
                 LabeledContent("Purity") {
-                                   Spacer(minLength: 10)
-                                   purityPicker()
-                               }
+                    Spacer() // stop truncation of picker values.
+                    purityPicker()
+                }
                 
+  /* ALTERNATIVE LAYOUT (kept for reference)
+     Use this HStack variant when a Picker truncates ("…") inside Form rows.
+     Why it works: the inner HStack + `.frame(maxWidth: .infinity, alignment: .trailing)`
+     forces the right column to expand, so `Spacer()` actually pushes the picker and
+     gives it room to render without truncation. `LabeledContent` achieves a similar
+     effect automatically, so the version above is simpler when you don't need
+     custom behavior.
+     To activate, replace the `LabeledContent("Purity")` row with the block below.
+    
+   
                 // Purity using HStack with expanding right column
                 HStack {
                     Text("Purity")
                     HStack {
                         Spacer()
-                        purityPicker()   // standard Picker; spacer prevents truncation
+                        purityPicker()// standard Picker; spacer prevents truncation
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+   */
 
                 // Weight + Unit — field placeholder acts as the label
                 HStack(spacing: 12) {
                     TextField("Enter weight", text: $weight)
                         .keyboardType(.decimalPad)
+                    // I don't know why but removing Spacer() gave me
+                    // more room for Lượng (VN) (37.50g) on 2 lines instead of 3
+                    //Spacer()
                     unitPicker()
                 }
 
@@ -47,7 +61,7 @@ struct AppraiseView: View {
                 HStack {
                     Text("Currency")
                     Spacer()
-                    currencyPicker()           // picker hides its own label
+                    currencyPicker()
                 }
             }
 
@@ -92,12 +106,7 @@ struct AppraiseView: View {
                     }
 
                     // Normalize to grams
-                    let grams: Double
-                    switch unit {
-                    case .gram: grams = input
-                    case .thaiBahtWeight: grams = input * 15.244
-                    case .ozt: grams = input * 31.1034768
-                    }
+                    let grams = input * unit.gramsPerUnit
 
                     // Map UI selection → pricing source and factor
                     let kind: MetalKind
@@ -161,33 +170,17 @@ struct AppraiseView: View {
                 Text(p.fullLabel).tag(p)
             }
         }
-        .labelsHidden() // since you already provide "Purity" on the left
+        .labelsHidden()
     }
-
-  /*
-    private func purityPicker() -> some View {
-        Menu {
-            ForEach(Purity.allCases) { p in
-                Button {
-                    purity = p
-                } label: {
-                    Text(p.fullLabel)
-                }
-            }
-        } label: {
-            Text(purity.fullLabel) // collapsed shows K + % as well
-                .lineLimit(1)
-        }
-    }
-*/
+    
     private func unitPicker() -> some View {
-        Picker("Unit", selection: $unit) {
-            Text("g").tag(Unit.gram)
-            Text("baht wt").tag(Unit.thaiBahtWeight)
-            Text("ozt").tag(Unit.ozt)
+        Picker(selection: $unit, label: Text(unit.shortLabel)) {
+            ForEach(Unit.allCases) { u in
+                Text(u.menuRowLabel).tag(u)
+            }
         }
         .labelsHidden()
-        .pickerStyle(.segmented) // segmented is fine here and compact
+        .pickerStyle(.menu)
     }
 
     private func currencyPicker() -> some View {
@@ -207,8 +200,47 @@ private enum Metal: String, CaseIterable, Identifiable {
 }
 
 private enum Unit: String, CaseIterable, Identifiable {
-    case gram, thaiBahtWeight, ozt
+    case gram, thaiBahtWeight, ozt, luongVN, chiVN, taelHK, tola
     var id: String { rawValue }
+
+    /// Number of grams in one unit (used for conversion)
+    var gramsPerUnit: Double {
+        switch self {
+        case .gram:            return 1.0
+        case .thaiBahtWeight:  return 15.244
+        case .ozt:             return 31.1034768
+        case .luongVN:         return 37.5          // 1 lượng ≈ 37.5 g
+        case .chiVN:           return 3.75          // 1 chỉ = 1/10 lượng
+        case .taelHK:          return 37.799364167  // HK tael (tsin)
+        case .tola:            return 11.6638038
+        }
+    }
+
+    /// Short label shown when the picker is collapsed
+    var shortLabel: String {
+        switch self {
+        case .gram:            return "g"
+        case .thaiBahtWeight:  return "baht wt"
+        case .ozt:             return "ozt"
+        case .luongVN:         return "luong"
+        case .chiVN:           return "chi"
+        case .taelHK:          return "tael"
+        case .tola:            return "tola"
+        }
+    }
+
+    /// Expanded menu row text, including grams (rounded to 2 decimals)
+    var menuRowLabel: String {
+        switch self {
+        case .gram:            return "g"                                 // keep collapsed short
+        case .thaiBahtWeight:  return "baht wt (15.24g)"
+        case .ozt:             return "ozt (31.10g)"
+        case .luongVN:         return "Lượng (VN) (37.50g)"
+        case .chiVN:           return "Chỉ (VN) (3.75g)"
+        case .taelHK:          return "Tael (HK) (37.80g)"
+        case .tola:            return "Tola (11.66g)"
+        }
+    }
 }
 
 private enum Purity: String, CaseIterable, Identifiable {
@@ -229,20 +261,7 @@ private enum Purity: String, CaseIterable, Identifiable {
         case .k9:  return "9K (37.5%)"
         }
     }
-
-    var shortK: String {
-        switch self {
-        case .thai965: return "23K Thai"
-        case .k24:     return "24K"
-        case .k22:     return "22K"
-        case .k21:     return "21K"
-        case .k20:     return "20K"
-        case .k18:     return "18K"
-        case .k14:     return "14K"
-        case .k9:      return "9K"
-        }
-    }
-
+    
     /// Factors when not using Thai market source (which is baked at call site).
     func factor(for metal: Metal) -> Double {
         switch metal {
