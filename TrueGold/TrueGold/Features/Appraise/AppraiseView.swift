@@ -98,47 +98,7 @@ struct AppraiseView: View {
 
             Section {
                 Button {
-                    let sanitized = weight.replacingOccurrences(of: ",", with: ".")
-                    guard let input = Double(sanitized), input > 0 else {
-                        viewModel.errorMessage = "Invalid weight"
-                        viewModel.result = nil
-                        return
-                    }
-
-                    // Normalize to grams
-                    let grams = input * unit.gramsPerUnit
-
-                    // Map UI selection → pricing source and factor
-                    let kind: MetalKind
-                    let factor: Double
-                    switch metal {
-                    case .gold:
-                        if purity == .thai965 {
-                            kind = .goldThai965
-                            factor = 1.0 // baked-in 96.5% on market quote
-                        } else {
-                            kind = .goldSpot
-                            factor = purity.factor(for: .gold)
-                        }
-                    case .silver:
-                        kind = .silverSpot
-                        factor = purity.factor(for: .silver)
-                    case .platinum:
-                        kind = .platinumSpot
-                        factor = purity.factor(for: .platinum)
-                    case .palladium:
-                        kind = .palladiumSpot
-                        factor = purity.factor(for: .palladium)
-                    }
-
-                    Task {
-                        await viewModel.appraise(
-                            kind: kind,
-                            purityFactor: factor,
-                            grams: grams,
-                            currency: currencyCode
-                        )
-                    }
+                    handleAppraiseTap()
                 } label: {
                     Label("Appraise", systemImage: "scalemass.fill")
                         .frame(maxWidth: .infinity)
@@ -149,6 +109,51 @@ struct AppraiseView: View {
             }
         }
         .navigationTitle("Appraise")
+    }
+
+    // MARK: - Actions
+    private func handleAppraiseTap() {
+        let sanitized = weight.replacingOccurrences(of: ",", with: ".")
+        guard let input = Double(sanitized), input > 0 else {
+            viewModel.errorMessage = "Invalid weight"
+            viewModel.result = nil
+            return
+        }
+
+        // Normalize to grams
+        let grams = input * unit.gramsPerUnit
+
+        // Map UI selection → pricing source and factor
+        let kind: MetalKind
+        let factor: Double
+        switch metal {
+        case .gold:
+            if purity == .thai965 {
+                kind = .goldThai965
+                factor = 1.0 // baked-in 96.5% on market quote
+            } else {
+                kind = .goldSpot
+                factor = purity.factor(for: .gold)
+            }
+        case .silver:
+            kind = .silverSpot
+            factor = purity.factor(for: .silver)
+        case .platinum:
+            kind = .platinumSpot
+            factor = purity.factor(for: .platinum)
+        case .palladium:
+            kind = .palladiumSpot
+            factor = purity.factor(for: .palladium)
+        }
+
+        Task {
+            await viewModel.appraise(
+                kind: kind,
+                purityFactor: factor,
+                grams: grams,
+                currency: currencyCode
+            )
+        }
     }
 
     // MARK: - Pickers (hide internal labels; outer labels remain in rows)
@@ -167,16 +172,16 @@ struct AppraiseView: View {
     private func purityPicker() -> some View {
         Picker("Purity", selection: $purity) {
             ForEach(Purity.allCases) { p in
-                Text(p.fullLabel).tag(p)
+                Text(p.purityPickerLabel).tag(p)
             }
         }
         .labelsHidden()
     }
     
     private func unitPicker() -> some View {
-        Picker(selection: $unit, label: Text(unit.shortLabel)) {
+        Picker(selection: $unit, label: Text(unit.unitPickerLabel)) {
             ForEach(Unit.allCases) { u in
-                Text(u.menuRowLabel).tag(u)
+                Text(u.unitPickerLabel).tag(u)
             }
         }
         .labelsHidden()
@@ -209,34 +214,21 @@ private enum Unit: String, CaseIterable, Identifiable {
         case .gram:            return 1.0
         case .thaiBahtWeight:  return 15.244
         case .ozt:             return 31.1034768
-        case .luongVN:         return 37.5          // 1 lượng ≈ 37.5 g
-        case .chiVN:           return 3.75          // 1 chỉ = 1/10 lượng
+        case .luongVN:         return 37.49          // 1 lượng ≈ 37.49 g
+        case .chiVN:           return 3.749          // 1 chỉ = 1/10 lượng
         case .taelHK:          return 37.799364167  // HK tael (tsin)
         case .tola:            return 11.6638038
         }
     }
 
-    /// Short label shown when the picker is collapsed
-    var shortLabel: String {
+    /// Label used for both the collapsed control and menu rows.
+    var unitPickerLabel: String {
         switch self {
         case .gram:            return "g"
-        case .thaiBahtWeight:  return "baht wt"
-        case .ozt:             return "ozt"
-        case .luongVN:         return "luong"
-        case .chiVN:           return "chi"
-        case .taelHK:          return "tael"
-        case .tola:            return "tola"
-        }
-    }
-
-    /// Expanded menu row text, including grams (rounded to 2 decimals)
-    var menuRowLabel: String {
-        switch self {
-        case .gram:            return "g"                                 // keep collapsed short
         case .thaiBahtWeight:  return "baht wt (15.24g)"
         case .ozt:             return "ozt (31.10g)"
-        case .luongVN:         return "Lượng (VN) (37.50g)"
-        case .chiVN:           return "Chỉ (VN) (3.75g)"
+        case .luongVN:         return "Lượng (VN) (37.49g)"
+        case .chiVN:           return "Chỉ (VN) (3.749g)"
         case .taelHK:          return "Tael (HK) (37.80g)"
         case .tola:            return "Tola (11.66g)"
         }
@@ -249,7 +241,7 @@ private enum Purity: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// Full label used inside the picker list.
-    var fullLabel: String {
+    var purityPickerLabel: String {
         switch self {
         case .thai965: return "23K Thai (96.5%)"
         case .k24: return "24K (99.9%)"
