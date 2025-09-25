@@ -10,6 +10,10 @@ struct AppraiseView: View {
     @State private var unit: Unit = .gram
     @State private var currencyCode: String = "USD"
 
+    // Units allowed for the currently selected metal
+    private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
+    private var allowedPurities: [Purity] { Purity.allowed(for: metal) }
+
     var body: some View {
         Form {
             Section("Item") {
@@ -108,6 +112,29 @@ struct AppraiseView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+        .onChange(of: metal) { _ in
+            // If current unit isn't valid for the newly selected metal, reset to grams
+            if !allowedUnits.contains(unit) { unit = .gram }
+            if !allowedPurities.contains(purity) {
+                switch metal {
+                case .gold:      purity = .k24
+                case .silver:    purity = .silver999
+                case .platinum:  purity = .platinum950
+                case .palladium: purity = .palladium950
+                }
+            }
+        }
+        .onAppear {
+            if !allowedUnits.contains(unit) { unit = .gram }
+            if !allowedPurities.contains(purity) {
+                switch metal {
+                case .gold:      purity = .k24
+                case .silver:    purity = .silver999
+                case .platinum:  purity = .platinum950
+                case .palladium: purity = .palladium950
+                }
+            }
+        }
         .navigationTitle("Appraise")
     }
 
@@ -171,7 +198,7 @@ struct AppraiseView: View {
     
     private func purityPicker() -> some View {
         Picker("Purity", selection: $purity) {
-            ForEach(Purity.allCases) { p in
+            ForEach(allowedPurities) { p in
                 Text(p.purityPickerLabel).tag(p)
             }
         }
@@ -180,7 +207,7 @@ struct AppraiseView: View {
     
     private func unitPicker() -> some View {
         Picker(selection: $unit, label: Text(unit.unitPickerLabel)) {
-            ForEach(Unit.allCases) { u in
+            ForEach(allowedUnits) { u in
                 Text(u.unitPickerLabel).tag(u)
             }
         }
@@ -233,43 +260,103 @@ private enum Unit: String, CaseIterable, Identifiable {
         case .tola:            return "Tola (11.66g)"
         }
     }
+
+    // Units that make sense per metal
+    static func allowed(for metal: Metal) -> [Unit] {
+        switch metal {
+        case .gold:
+            return [.gram, .thaiBahtWeight, .ozt, .luongVN, .chiVN, .taelHK, .tola]
+        case .silver:
+            return [.gram, .ozt]
+        case .platinum, .palladium:
+            return [.gram, .ozt]
+        }
+    }
 }
 
 private enum Purity: String, CaseIterable, Identifiable {
+    // Gold karats (plus Thai market purity)
     case k24, thai965, k22, k21, k20, k18, k14, k9
+    // Silver
+    case silver999, silver925
+    // Platinum (jewelry/industrial)
+    case platinum9995, platinum950
+    // Palladium (jewelry/industrial)
+    case palladium9995, palladium950
 
     var id: String { rawValue }
 
-    /// Full label used inside the picker list.
+    /// Label used inside the picker list (full, descriptive).
     var purityPickerLabel: String {
         switch self {
+        // Gold
         case .thai965: return "23K Thai (96.5%)"
-        case .k24: return "24K (99.9%)"
-        case .k22: return "22K (91.7%)"
-        case .k21: return "21K (87.5%)"
-        case .k20: return "20K (83.3%)"
-        case .k18: return "18K (75.0%)"
-        case .k14: return "14K (58.5%)"
-        case .k9:  return "9K (37.5%)"
+        case .k24:     return "24K (99.9%)"
+        case .k22:     return "22K (91.7%)"
+        case .k21:     return "21K (87.5%)"
+        case .k20:     return "20K (83.3%)"
+        case .k18:     return "18K (75.0%)"
+        case .k14:     return "14K (58.5%)"
+        case .k9:      return "9K (37.5%)"
+        // Silver
+        case .silver999: return "Silver .999 (99.9%)"
+        case .silver925: return "Sterling .925 (92.5%)"
+        // Platinum
+        case .platinum9995: return "Platinum 999.5‰"
+        case .platinum950:  return "Platinum 950‰"
+        // Palladium
+        case .palladium9995: return "Palladium 999.5‰"
+        case .palladium950:  return "Palladium 950‰"
         }
     }
-    
-    /// Factors when not using Thai market source (which is baked at call site).
+
+    /// Purity factor by metal. Thai 96.5% is not applied when the Thai market source is used (handled at call site).
     func factor(for metal: Metal) -> Double {
         switch metal {
         case .gold:
             switch self {
-            case .thai965: return 0.965 // not applied when using Thai source
-            case .k24: return 0.999
-            case .k22: return 0.917
-            case .k21: return 0.875
-            case .k20: return 0.833
-            case .k18: return 0.750
-            case .k14: return 0.585
-            case .k9:  return 0.375
+            case .thai965: return 0.965   // note: ignored when using Thai market source
+            case .k24:     return 0.999
+            case .k22:     return 0.917
+            case .k21:     return 0.875
+            case .k20:     return 0.833
+            case .k18:     return 0.750
+            case .k14:     return 0.585
+            case .k9:      return 0.375
+            default:       return 0.999   // not expected for gold, but keep safe default
             }
-        case .silver, .platinum, .palladium:
-            return 0.999
+        case .silver:
+            switch self {
+            case .silver999: return 0.999
+            case .silver925: return 0.925
+            default:         return 0.999
+            }
+        case .platinum:
+            switch self {
+            case .platinum9995: return 0.9995
+            case .platinum950:  return 0.950
+            default:            return 0.9995
+            }
+        case .palladium:
+            switch self {
+            case .palladium9995: return 0.9995
+            case .palladium950:  return 0.950
+            default:             return 0.9995
+            }
+        }
+    }
+
+    /// Allowed purity options per metal (drives the picker list)
+    static func allowed(for metal: Metal) -> [Purity] {
+        switch metal {
+        case .gold:
+            return [.k24, .thai965, .k22, .k21, .k20, .k18, .k14, .k9]
+        case .silver:
+            return [.silver999, .silver925]
+        case .platinum:
+            return [.platinum950, .platinum9995]
+        case .palladium:
+            return [.palladium950, .palladium9995]
         }
     }
 }
