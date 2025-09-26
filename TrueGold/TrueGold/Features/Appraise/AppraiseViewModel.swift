@@ -28,7 +28,14 @@ final class AppraiseViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         result = nil
-        defer { isLoading = false }
+        //defer { isLoading = false }
+        
+        defer {
+            // Small delay to smooth out quick flashes of the loading state
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+                self.isLoading = false
+            }
+        }
 
         do {
             // 1) Base per‑gram in target currency from PricingEngine/Repository

@@ -1,5 +1,50 @@
 import SwiftUI
 
+private final class KeyboardObserver: ObservableObject {
+    @Published var height: CGFloat = 0
+
+    init() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handle(notification:)),
+                                               name: UIResponder.keyboardWillChangeFrameNotification,
+                                               object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handle(notification:)),
+                                               name: UIResponder.keyboardWillHideNotification,
+                                               object: nil)
+    }
+
+    @objc private func handle(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let endFrame = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else {
+            self.height = 0
+            return
+        }
+        // Translate keyboard height into a bottom inset, minus safe-area so we don't double-inset
+        let screen = UIScreen.main.bounds
+        let overlap = max(0, screen.maxY - endFrame.minY)
+        let safeBottom: CGFloat = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
+            .first ?? 0
+        let target = max(0, overlap - safeBottom)
+
+        // Animate to match the keyboard
+        if let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+           let curveRaw = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt {
+            let options = UIView.AnimationOptions(rawValue: curveRaw << 16)
+            UIView.animate(withDuration: duration, delay: 0, options: options) {
+                self.height = target
+            }
+        } else {
+            self.height = target
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+}
+
 private enum AppraisePrefs {
     static let currencyKey = "Appraise.lastCurrencyCode"
 }
@@ -13,108 +58,111 @@ struct AppraiseView: View {
     @State private var weight: String = ""
     @State private var unit: Unit = .gram
     @State private var currencyCode: String = "USD"
+    @FocusState private var weightFocused: Bool
+    @StateObject private var kb = KeyboardObserver()
 
     // Units allowed for the currently selected metal
     private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
     private var allowedPurities: [Purity] { Purity.allowed(for: metal) }
 
     var body: some View {
-        Form {
-            Section("Item") {
-                // Metal
-                HStack {
-                    Text("Metal")
-                    Spacer()
-                    metalPicker()
-                }
-
-                // Purity
-                LabeledContent("Purity") {
-                    Spacer() // stop truncation of picker values.
-                    purityPicker()
-                }
-                
-  /* ALTERNATIVE LAYOUT (kept for reference)
-     Use this HStack variant when a Picker truncates ("…") inside Form rows.
-     Why it works: the inner HStack + `.frame(maxWidth: .infinity, alignment: .trailing)`
-     forces the right column to expand, so `Spacer()` actually pushes the picker and
-     gives it room to render without truncation. `LabeledContent` achieves a similar
-     effect automatically, so the version above is simpler when you don't need
-     custom behavior.
-     To activate, replace the `LabeledContent("Purity")` row with the block below.
-    
-   
-                // Purity using HStack with expanding right column
-                HStack {
-                    Text("Purity")
-                    HStack {
-                        Spacer()
-                        purityPicker()// standard Picker; spacer prevents truncation
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-   */
-
-                // Weight + Unit — field placeholder acts as the label
-                HStack(spacing: 12) {
-                    TextField("Enter weight", text: $weight)
-                        .keyboardType(.decimalPad)
-                    // I don't know why but removing Spacer() gave me
-                    // more room for Lượng (VN) (37.50g) on 2 lines instead of 3
-                    //Spacer()
-                    unitPicker()
-                }
-
-                // Currency
-                HStack {
-                    Text("Currency")
-                    Spacer()
-                    currencyPicker()
-                }
-            }
-
-            Section("Result") {
-                if viewModel.isLoading {
-                    HStack { ProgressView(); Text("Appraising…") }
-                } else if let r = viewModel.result {
-                    VStack(alignment: .leading, spacing: 8) {
+        ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                Form {
+                    Section("Item") {
+                        // Metal
                         HStack {
-                            Text("Per gram")
+                            Text("Metal")
                             Spacer()
-                            Text("\(r.currency) \(r.perGram.formatted(.number.precision(.fractionLength(2))))")
-                                .monospacedDigit()
+                            metalPicker()
                         }
-                        HStack {
-                            Text("Total")
-                            Spacer()
-                            Text("\(r.currency) \(r.total.formatted(.number.precision(.fractionLength(2))))")
-                                .font(.title3.weight(.semibold))
-                                .monospacedDigit()
-                        }
-                        Text(r.note)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                } else if let e = viewModel.errorMessage {
-                    Label(e, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                } else {
-                    Text("Enter details above, then tap Appraise.")
-                        .foregroundStyle(.secondary)
-                }
-            }
 
-            Section {
-                Button {
-                    handleAppraiseTap()
-                } label: {
-                    Label("Appraise", systemImage: "scalemass.fill")
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
-                        .colorInvert() // keep readable against yellow tint
+                        // Purity
+                        LabeledContent("Purity") {
+                            Spacer() // stop truncation of picker values.
+                            purityPicker()
+                        }
+                        
+          /* ALTERNATIVE LAYOUT (kept for reference)
+             Use this HStack variant when a Picker truncates ("…") inside Form rows.
+             Why it works: the inner HStack + `.frame(maxWidth: .infinity, alignment: .trailing)`
+             forces the right column to expand, so `Spacer()` actually pushes the picker and
+             gives it room to render without truncation. `LabeledContent` achieves a similar
+             effect automatically, so the version above is simpler when you don't need
+             custom behavior.
+             To activate, replace the `LabeledContent("Purity")` row with the block below.
+            
+           
+                        // Purity using HStack with expanding right column
+                        HStack {
+                            Text("Purity")
+                            HStack {
+                                Spacer()
+                                purityPicker()// standard Picker; spacer prevents truncation
+                            }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+           */
+
+                        // Weight + Unit — field placeholder acts as the label
+                        HStack(spacing: 12) {
+                            TextField("Enter weight", text: $weight)
+                                .keyboardType(.decimalPad)
+                                .focused($weightFocused)
+                                
+                            // I don't know why but removing Spacer() gave me
+                            // more room for Lượng (VN) (37.50g) on 2 lines instead of 3
+                            //Spacer()
+                            unitPicker()
+                        }
+
+                        // Currency
+                        HStack {
+                            Text("Currency")
+                            Spacer()
+                            currencyPicker()
+                        }
+                    }
+
+                    Section("Result") {
+                        if viewModel.isLoading {
+                            HStack { ProgressView(); Text("Appraising…") }
+                        } else if let r = viewModel.result {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Per gram")
+                                    Spacer()
+                                    Text("\(r.currency) \(r.perGram.formatted(.number.precision(.fractionLength(2))))")
+                                        .monospacedDigit()
+                                }
+                                HStack {
+                                    Text("Total")
+                                    Spacer()
+                                    Text("\(r.currency) \(r.total.formatted(.number.precision(.fractionLength(2))))")
+                                        .font(.title3.weight(.semibold))
+                                        .monospacedDigit()
+                                }
+                                Text(r.note)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if let e = viewModel.errorMessage {
+                            Label(e, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                        } else {
+                            Text("Enter details above, then tap Appraise.")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Section {
+                        appraiseCTA()
+                    }
                 }
-                .buttonStyle(.borderedProminent)
             }
+            .background(Color.clear)
+            .offset(y: -kb.height / 3)
+            .animation(.easeOut(duration: 0.25), value: kb.height)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .onChange(of: metal) { _ in
             // If current unit isn't valid for the newly selected metal, reset to grams
@@ -150,52 +198,69 @@ struct AppraiseView: View {
             }
         }
         .navigationTitle("Appraise")
+        .scrollDismissesKeyboard(.interactively)
     }
 
-    // MARK: - Actions
-    private func handleAppraiseTap() {
-        let sanitized = weight.replacingOccurrences(of: ",", with: ".")
-        guard let input = Double(sanitized), input > 0 else {
-            viewModel.errorMessage = "Please enter a valid weight"
-            viewModel.result = nil
-            return
-        }
-
-        // Normalize to grams
-        let grams = input * unit.gramsPerUnit
-
-        // Map UI selection → pricing source and factor
-        let kind: MetalKind
-        let factor: Double
-        switch metal {
-        case .gold:
-            if purity == .thai965 {
-                kind = .goldThai965
-                factor = 1.0 // baked-in 96.5% on market quote
-            } else {
-                kind = .goldSpot
-                factor = purity.factor(for: .gold)
-            }
-        case .silver:
-            kind = .silverSpot
-            factor = purity.factor(for: .silver)
-        case .platinum:
-            kind = .platinumSpot
-            factor = purity.factor(for: .platinum)
-        case .palladium:
-            kind = .palladiumSpot
-            factor = purity.factor(for: .palladium)
-        }
-
-        Task {
-            await viewModel.appraise(
-                kind: kind,
-                purityFactor: factor,
-                grams: grams,
-                currency: currencyCode
-            )
-        }
+// MARK: - Reusable CTA
+@ViewBuilder
+private func appraiseCTA() -> some View {
+    Button {
+        handleAppraiseTap()
+    } label: {
+        Label("Appraise", systemImage: "scalemass.fill")
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
+            .colorInvert()
     }
+    .buttonStyle(.borderedProminent)
+}
+
+// MARK: - Actions
+private func handleAppraiseTap() {
+    weightFocused = false
+    UIApplication.shared.endEditing()
+    let sanitized = weight.replacingOccurrences(of: ",", with: ".")
+    guard let input = Double(sanitized), input > 0 else {
+        viewModel.errorMessage = "Please enter a valid weight"
+        viewModel.result = nil
+        return
+    }
+
+    // Normalize to grams
+    let grams = input * unit.gramsPerUnit
+
+    // Map UI selection → pricing source and factor
+    let kind: MetalKind
+    let factor: Double
+    switch metal {
+    case .gold:
+        if purity == .thai965 {
+            kind = .goldThai965
+            factor = 1.0 // baked-in 96.5% on market quote
+        } else {
+            kind = .goldSpot
+            factor = purity.factor(for: .gold)
+        }
+    case .silver:
+        kind = .silverSpot
+        factor = purity.factor(for: .silver)
+    case .platinum:
+        kind = .platinumSpot
+        factor = purity.factor(for: .platinum)
+    case .palladium:
+        kind = .palladiumSpot
+        factor = purity.factor(for: .palladium)
+    }
+
+    Task {
+        await viewModel.appraise(
+            kind: kind,
+            purityFactor: factor,
+            grams: grams,
+            currency: currencyCode
+        )
+    }
+}
 
     // MARK: - Pickers (hide internal labels; outer labels remain in rows)
 
@@ -373,5 +438,11 @@ private enum Purity: String, CaseIterable, Identifiable {
         case .palladium:
             return [.palladium950, .palladium9995]
         }
+    }
+}
+
+private extension UIApplication {
+    func endEditing() {
+        sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
