@@ -158,8 +158,8 @@ struct AppraiseView: View {
                         appraiseCTA()
                     }
                 }
+                .scrollContentBackground(.hidden)
             }
-            .background(Color.clear)
             .offset(y: -kb.height / 3)
             .animation(.easeOut(duration: 0.25), value: kb.height)
             .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -199,6 +199,9 @@ struct AppraiseView: View {
         }
         .navigationTitle("Appraise")
         .scrollDismissesKeyboard(.interactively)
+        .background(Color(red: 67/255, green: 56/255, blue: 202/255))
+
+        
     }
 
 // MARK: - Reusable CTA
