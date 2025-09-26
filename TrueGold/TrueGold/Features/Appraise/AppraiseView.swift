@@ -1,5 +1,9 @@
 import SwiftUI
 
+private enum AppraisePrefs {
+    static let currencyKey = "Appraise.lastCurrencyCode"
+}
+
 struct AppraiseView: View {
     @ObservedObject var viewModel: AppraiseViewModel
 
@@ -124,7 +128,17 @@ struct AppraiseView: View {
                 }
             }
         }
+        .onChange(of: currencyCode) { newValue in
+            UserDefaults.standard.set(newValue, forKey: AppraisePrefs.currencyKey)
+        }
         .onAppear {
+            // Restore last selected currency (if previously saved and still valid)
+            if let saved = UserDefaults.standard.string(forKey: AppraisePrefs.currencyKey),
+               Currency.allCases.contains(where: { $0.code == saved }) {
+                currencyCode = saved
+            }
+
+            // Ensure current unit/purity are valid for the chosen metal
             if !allowedUnits.contains(unit) { unit = .gram }
             if !allowedPurities.contains(purity) {
                 switch metal {
@@ -142,7 +156,7 @@ struct AppraiseView: View {
     private func handleAppraiseTap() {
         let sanitized = weight.replacingOccurrences(of: ",", with: ".")
         guard let input = Double(sanitized), input > 0 else {
-            viewModel.errorMessage = "Invalid weight"
+            viewModel.errorMessage = "Please enter a valid weight"
             viewModel.result = nil
             return
         }
@@ -200,9 +214,13 @@ struct AppraiseView: View {
         Picker("Purity", selection: $purity) {
             ForEach(allowedPurities) { p in
                 Text(p.purityPickerLabel).tag(p)
+                    .lineLimit(2)
+
             }
         }
         .labelsHidden()
+        .pickerStyle(.menu)
+        
     }
     
     private func unitPicker() -> some View {
@@ -212,7 +230,7 @@ struct AppraiseView: View {
             }
         }
         .labelsHidden()
-        .pickerStyle(.menu)
+        .pickerStyle(.menu) // 2 lines because picker is retarded and won't shrink
     }
 
     private func currencyPicker() -> some View {
@@ -241,14 +259,13 @@ private enum Unit: String, CaseIterable, Identifiable {
         case .gram:            return 1.0
         case .thaiBahtWeight:  return 15.244
         case .ozt:             return 31.1034768
-        case .luongVN:         return 37.49          // 1 lượng ≈ 37.49 g
-        case .chiVN:           return 3.749          // 1 chỉ = 1/10 lượng
+        case .luongVN:         return 37.49         // 1 lượng ≈ 37.49 g
+        case .chiVN:           return 3.749         // 1 chỉ = 1/10 lượng
         case .taelHK:          return 37.799364167  // HK tael (tsin)
         case .tola:            return 11.6638038
         }
     }
 
-    /// Label used for both the collapsed control and menu rows.
     var unitPickerLabel: String {
         switch self {
         case .gram:            return "g"
@@ -275,13 +292,9 @@ private enum Unit: String, CaseIterable, Identifiable {
 }
 
 private enum Purity: String, CaseIterable, Identifiable {
-    // Gold karats (plus Thai market purity)
-    case k24, thai965, k22, k21, k20, k18, k14, k9
-    // Silver
+    case k24, thai965, k22, k21, k20, k18, k14, k10, k9
     case silver999, silver925
-    // Platinum (jewelry/industrial)
     case platinum9995, platinum950
-    // Palladium (jewelry/industrial)
     case palladium9995, palladium950
 
     var id: String { rawValue }
@@ -297,16 +310,17 @@ private enum Purity: String, CaseIterable, Identifiable {
         case .k20:     return "20K (83.3%)"
         case .k18:     return "18K (75.0%)"
         case .k14:     return "14K (58.5%)"
+        case .k10:     return "10K (41.7%)"
         case .k9:      return "9K (37.5%)"
         // Silver
-        case .silver999: return "Silver .999 (99.9%)"
+        case .silver999: return "Fine .999 (99.9%)"
         case .silver925: return "Sterling .925 (92.5%)"
         // Platinum
-        case .platinum9995: return "Platinum 999.5‰"
-        case .platinum950:  return "Platinum 950‰"
+        case .platinum9995: return "Platinum 999.5 (99.95%)"
+        case .platinum950:  return "Platinum 950 (95.0%)"
         // Palladium
-        case .palladium9995: return "Palladium 999.5‰"
-        case .palladium950:  return "Palladium 950‰"
+        case .palladium9995: return "Palladium 999.5 (99.95%)"
+        case .palladium950:  return "Palladium 950 (95.0%)"
         }
     }
 
@@ -322,6 +336,7 @@ private enum Purity: String, CaseIterable, Identifiable {
             case .k20:     return 0.833
             case .k18:     return 0.750
             case .k14:     return 0.585
+            case .k10:     return 0.417
             case .k9:      return 0.375
             default:       return 0.999   // not expected for gold, but keep safe default
             }
@@ -350,7 +365,7 @@ private enum Purity: String, CaseIterable, Identifiable {
     static func allowed(for metal: Metal) -> [Purity] {
         switch metal {
         case .gold:
-            return [.k24, .thai965, .k22, .k21, .k20, .k18, .k14, .k9]
+            return [.k24, .thai965, .k22, .k21, .k20, .k18, .k14, .k10, .k9]
         case .silver:
             return [.silver999, .silver925]
         case .platinum:
