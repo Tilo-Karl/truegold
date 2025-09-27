@@ -91,7 +91,6 @@ struct AppraiseView: View {
              effect automatically, so the version above is simpler when you don't need
              custom behavior.
              To activate, replace the `LabeledContent("Purity")` row with the block below.
-            
            
                         // Purity using HStack with expanding right column
                         HStack {
@@ -199,7 +198,8 @@ struct AppraiseView: View {
         }
         .navigationTitle("Appraise")
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(red: 67/255, green: 56/255, blue: 202/255))
+        //.background(Color.yellow)
+        //.background(Color(red: 67/255, green: 56/255, blue: 202/255))
 
         
     }
@@ -210,10 +210,11 @@ private func appraiseCTA() -> some View {
     Button {
         handleAppraiseTap()
     } label: {
-        Label("Appraise", systemImage: "scalemass.fill")
+        Text("Appraise")
+        //Label("Appraise", systemImage: "scalemass.fill")
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
-            .colorInvert()
+            //.colorInvert()
     }
     .buttonStyle(.borderedProminent)
 }
@@ -277,7 +278,6 @@ private func handleAppraiseTap() {
         .labelsHidden()
     }
  
-    
     private func purityPicker() -> some View {
         Picker("Purity", selection: $purity) {
             ForEach(allowedPurities) { p in
