@@ -23,6 +23,6 @@ struct RootTabs: View {
             CompareView(viewModel: compareVM)
                 .tabItem { Label("Compare", systemImage: "rectangle.split.3x1.fill") }
         }
-        .tint(.purple)
+        .tint(.appPurple)
     }
 }

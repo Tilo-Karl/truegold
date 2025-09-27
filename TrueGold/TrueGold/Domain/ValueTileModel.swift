@@ -6,4 +6,5 @@ struct ValueTileModel: Identifiable {
     let subtitle: String
     let currency: String
     let value: Double
+    let unitLabel: String?
 }

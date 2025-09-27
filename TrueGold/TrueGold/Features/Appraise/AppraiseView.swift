@@ -124,35 +124,9 @@ struct AppraiseView: View {
                     }
 
                     Section("Result") {
-                        if viewModel.isLoading {
-                            HStack { ProgressView(); Text("Appraising…") }
-                        } else if let r = viewModel.result {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Per gram")
-                                    Spacer()
-                                    Text("\(r.currency) \(r.perGram.formatted(.number.precision(.fractionLength(2))))")
-                                        .monospacedDigit()
-                                }
-                                HStack {
-                                    Text("Total")
-                                    Spacer()
-                                    Text("\(r.currency) \(r.total.formatted(.number.precision(.fractionLength(2))))")
-                                        .font(.title3.weight(.semibold))
-                                        .monospacedDigit()
-                                }
-                                Text(r.note)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else if let e = viewModel.errorMessage {
-                            Label(e, systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange)
-                        } else {
-                            Text("Enter details above, then tap Appraise.")
-                                .foregroundStyle(.secondary)
-                        }
+                        resultSection(viewModel)
                     }
+                    
                     Section {
                         appraiseCTA()
                     }
@@ -198,13 +172,10 @@ struct AppraiseView: View {
         }
         .navigationTitle("Appraise")
         .scrollDismissesKeyboard(.interactively)
-        //.background(Color.yellow)
-        //.background(Color(red: 67/255, green: 56/255, blue: 202/255))
-
         
     }
 
-// MARK: - Reusable CTA
+// MARK: - Reusable CTA - don't need @MainActor because SwiftUI knows button is for main thread
 @ViewBuilder
 private func appraiseCTA() -> some View {
     Button {
@@ -214,7 +185,6 @@ private func appraiseCTA() -> some View {
         //Label("Appraise", systemImage: "scalemass.fill")
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
-            //.colorInvert()
     }
     .buttonStyle(.borderedProminent)
 }
@@ -449,3 +419,37 @@ private extension UIApplication {
         sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
+
+    // MARK: - Result Section Helper
+    @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
+    @ViewBuilder
+    private func resultSection(_ vm: AppraiseViewModel) -> some View {
+        if vm.isLoading {
+            HStack { ProgressView(); Text("Appraising…") }
+        } else if let r = vm.result {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Per gram")
+                    Spacer()
+                    Text("\(r.currency) \(r.perGram.formatted(.number.precision(.fractionLength(2))))")
+                        .monospacedDigit()
+                }
+                HStack {
+                    Text("Total")
+                    Spacer()
+                    Text("\(r.currency) \(r.total.formatted(.number.precision(.fractionLength(2))))")
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                }
+                Text(r.note)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        } else if let e = vm.errorMessage {
+            Label(e, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        } else {
+            Text("Enter details above, then tap Appraise.")
+                .foregroundStyle(.secondary)
+        }
+    }

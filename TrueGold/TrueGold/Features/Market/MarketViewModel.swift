@@ -6,7 +6,14 @@ final class MarketViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published var notice: String? = nil
+    
+    enum MarketUnit: String, CaseIterable { case gram, ozt }
+    typealias MeasurementUnit = MarketUnit
+    @Published var selectedUnit: MarketUnit = .gram
+    
     private let engine: PricingEngine
+    private let gramsPerTroyOunce = 31.1034768
+    private var rawQuotes: [(title: String, currency: String, perGram: Double)] = []
 
     init(repo: MarketRepository) {
         self.engine = PricingEngine(repo: repo)
@@ -21,51 +28,30 @@ final class MarketViewModel: ObservableObject {
         defer { isLoading = false }
 
         let targetCurrency = currency ?? "USD"
-
-        var out: [ValueTileModel] = []
+        rawQuotes.removeAll()
 
         // Fetch spot metals (excluding Thai gold) in the requested currency
         for k in MetalKind.allCases where k != .goldThai965 {
             do {
                 let v = try await engine.pricePerGram(kind: k, currency: targetCurrency)
-                out.append(.init(
-                    title: k.displayName,
-                    subtitle: "per g",
-                    currency: targetCurrency,
-                    value: v
-                ))
+                rawQuotes.append((title: k.displayName, currency: targetCurrency, perGram: v))
             } catch {
                 if errorMessage == nil { errorMessage = error.localizedDescription }
             }
         }
 
-        // Thai gold: show both THB and converted
+        // Thai gold: only one row in the target currency
         do {
-            let thbValue = try await engine.pricePerGram(kind: .goldThai965, currency: "THB")
-            out.append(.init(
-                title: "Thai Gold 96.5%",
-                subtitle: "per g",
-                currency: "THB",
-                value: thbValue
-            ))
-
-            if targetCurrency != "THB" {
-                let converted = try await engine.pricePerGram(kind: .goldThai965, currency: targetCurrency)
-                out.append(.init(
-                    title: "Thai Gold 96.5%",
-                    subtitle: "per g",
-                    currency: targetCurrency,
-                    value: converted
-                ))
-            }
+            let v = try await engine.pricePerGram(kind: .goldThai965, currency: targetCurrency)
+            rawQuotes.append((title: "Thai Gold 96.5%", currency: targetCurrency, perGram: v))
         } catch {
             if errorMessage == nil { errorMessage = error.localizedDescription }
         }
 
-        if out.isEmpty, NetworkMonitor.shared.isOnline == false {
+        if rawQuotes.isEmpty, NetworkMonitor.shared.isOnline == false {
             errorMessage = "No network and no cached data."
         }
-        rows = out
+        rebuildRowsFromRaw()
     }
 
     private func updateConnectivityNotice() {
@@ -78,4 +64,25 @@ final class MarketViewModel: ObservableObject {
 
     // Exposed wrapper for views
     func performConnectivityNoticeUpdate() { updateConnectivityNotice() }
+    
+    private func rebuildRowsFromRaw() {
+        let factor: Double = (selectedUnit == .gram) ? 1.0 : gramsPerTroyOunce
+        rows = rawQuotes.map { item in
+            .init(
+                title: item.title,
+                subtitle: "",
+                currency: item.currency,
+                value: item.perGram * factor,
+                unitLabel: nil
+            )
+        }
+    }
+    
+    func setUnit(_ unit: MarketUnit) async {
+        await MainActor.run {
+            guard self.selectedUnit != unit else { return }
+            self.selectedUnit = unit
+            self.rebuildRowsFromRaw()
+        }
+    }
 }

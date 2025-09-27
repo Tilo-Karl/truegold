@@ -7,11 +7,11 @@ struct ValueTile: View {
         HStack {
             VStack(alignment: .leading) {
                 Text(model.title).font(.headline)
-                Text(model.subtitle).font(.subheadline)
             }
             Spacer()
-            Text("\(model.value, specifier: "%.2f") \(model.currency)")
+            Text("\(model.value, specifier: "%.2f")")
                 .bold()
+                .foregroundColor(.appPurple)
         }
         .padding(.vertical, 4)
     }
