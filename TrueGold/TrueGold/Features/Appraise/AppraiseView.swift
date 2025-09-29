@@ -47,6 +47,9 @@ private final class KeyboardObserver: ObservableObject {
 
 private enum AppraisePrefs {
     static let currencyKey = "Appraise.lastCurrencyCode"
+    static let unitKey     = "Appraise.lastUnit"
+    static let metalKey    = "Appraise.lastMetal"
+    static let purityKey   = "Appraise.lastPurity"
 }
 
 struct AppraiseView: View {
@@ -65,19 +68,17 @@ struct AppraiseView: View {
     private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
     private var allowedPurities: [Purity] { Purity.allowed(for: metal) }
 
-    var body: some View {
+var body: some View {
+    NavigationStack {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
                 Form {
                     Section("Item") {
-                        // Metal
                         HStack {
                             Text("Metal")
                             Spacer()
                             metalPicker()
                         }
-
-                        // Purity
                         LabeledContent("Purity") {
                             Spacer() // stop truncation of picker values.
                             purityPicker()
@@ -114,8 +115,6 @@ struct AppraiseView: View {
                             //Spacer()
                             unitPicker()
                         }
-
-                        // Currency
                         HStack {
                             Text("Currency")
                             Spacer()
@@ -133,7 +132,7 @@ struct AppraiseView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
-            .offset(y: -kb.height / 3)
+            .offset(y: -kb.height / 1.5)
             .animation(.easeOut(duration: 0.25), value: kb.height)
             .ignoresSafeArea(.keyboard, edges: .bottom)
         }
@@ -148,15 +147,35 @@ struct AppraiseView: View {
                 case .palladium: purity = .palladium950
                 }
             }
+            UserDefaults.standard.set(metal.rawValue, forKey: AppraisePrefs.metalKey)
+        }
+        .onChange(of: purity) { newValue in
+            UserDefaults.standard.set(newValue.rawValue, forKey: AppraisePrefs.purityKey)
         }
         .onChange(of: currencyCode) { newValue in
             UserDefaults.standard.set(newValue, forKey: AppraisePrefs.currencyKey)
+        }
+        .onChange(of: unit) { newValue in
+            UserDefaults.standard.set(newValue.rawValue, forKey: AppraisePrefs.unitKey)
         }
         .onAppear {
             // Restore last selected currency (if previously saved and still valid)
             if let saved = UserDefaults.standard.string(forKey: AppraisePrefs.currencyKey),
                Currency.allCases.contains(where: { $0.code == saved }) {
                 currencyCode = saved
+            }
+
+            if let savedMetal = UserDefaults.standard.string(forKey: AppraisePrefs.metalKey),
+               let m = Metal(rawValue: savedMetal) {
+                metal = m
+            }
+            if let savedPurity = UserDefaults.standard.string(forKey: AppraisePrefs.purityKey),
+               let p = Purity(rawValue: savedPurity) {
+                purity = p
+            }
+            if let savedUnit = UserDefaults.standard.string(forKey: AppraisePrefs.unitKey),
+               let u = Unit(rawValue: savedUnit) {
+                unit = u
             }
 
             // Ensure current unit/purity are valid for the chosen metal
@@ -170,10 +189,13 @@ struct AppraiseView: View {
                 }
             }
         }
-        .navigationTitle("Appraise")
         .scrollDismissesKeyboard(.interactively)
-        
+        .navigationTitle("Appraise")
+        .toolbarBackground(Color.appPurple, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
+}
 
 // MARK: - Reusable CTA - don't need @MainActor because SwiftUI knows button is for main thread
 @ViewBuilder
@@ -182,9 +204,10 @@ private func appraiseCTA() -> some View {
         handleAppraiseTap()
     } label: {
         Text("Appraise")
-        //Label("Appraise", systemImage: "scalemass.fill")
+        //Label("Appraise", systemImage: "scalemass")
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
+            .foregroundStyle(.white)
     }
     .buttonStyle(.borderedProminent)
 }
@@ -288,7 +311,8 @@ private enum Metal: String, CaseIterable, Identifiable {
 }
 
 private enum Unit: String, CaseIterable, Identifiable {
-    case gram, thaiBahtWeight, ozt, luongVN, chiVN, taelHK, tola
+    case gram, thaiBahtWeight, ozt, luongVN, chiVN, taelHK, mace, tola
+    case aana, rati
     var id: String { rawValue }
 
     /// Number of grams in one unit (used for conversion)
@@ -300,7 +324,10 @@ private enum Unit: String, CaseIterable, Identifiable {
         case .luongVN:         return 37.49         // 1 lượng ≈ 37.49 g
         case .chiVN:           return 3.749         // 1 chỉ = 1/10 lượng
         case .taelHK:          return 37.799364167  // HK tael (tsin)
+        case .mace:            return 3.7799364167  // 1/10 HK Tael
         case .tola:            return 11.6638038
+        case .aana:            return 0.97198365
+        case .rati:            return 0.24299591
         }
     }
 
@@ -312,7 +339,10 @@ private enum Unit: String, CaseIterable, Identifiable {
         case .luongVN:         return "Lượng (VN) (37.49g)"
         case .chiVN:           return "Chỉ (VN) (3.749g)"
         case .taelHK:          return "Tael (HK) (37.80g)"
+        case .mace:            return "Mace (HK) (3.78g)"
         case .tola:            return "Tola (11.66g)"
+        case .aana:            return "Aana (0.97g)"
+        case .rati:            return "Rati (0.243g)"
         }
     }
 
@@ -320,7 +350,7 @@ private enum Unit: String, CaseIterable, Identifiable {
     static func allowed(for metal: Metal) -> [Unit] {
         switch metal {
         case .gold:
-            return [.gram, .thaiBahtWeight, .ozt, .luongVN, .chiVN, .taelHK, .tola]
+            return [.gram, .thaiBahtWeight, .ozt, .luongVN, .chiVN, .taelHK, .mace, .tola, .aana, .rati]
         case .silver:
             return [.gram, .ozt]
         case .platinum, .palladium:
@@ -433,6 +463,7 @@ private extension UIApplication {
                     Spacer()
                     Text("\(r.currency) \(r.perGram.formatted(.number.precision(.fractionLength(2))))")
                         .monospacedDigit()
+                        .foregroundColor(.appPurple)
                 }
                 HStack {
                     Text("Total")
@@ -440,6 +471,7 @@ private extension UIApplication {
                     Text("\(r.currency) \(r.total.formatted(.number.precision(.fractionLength(2))))")
                         .font(.title3.weight(.semibold))
                         .monospacedDigit()
+                        .foregroundColor(.appPurple)
                 }
                 Text(r.note)
                     .font(.footnote)

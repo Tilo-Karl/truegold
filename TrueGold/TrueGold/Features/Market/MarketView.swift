@@ -5,12 +5,16 @@ struct MarketView: View {
     @State private var currency = "USD"
     @State private var unit: UnitToggle = .gram
 
+    private enum MarketPrefs {
+        static let currencyKey = "Market.lastCurrencyCode"
+        static let unitKey = "Market.lastUnit"
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 // Controls
                 Section {
-                    // Currency picker (all currencies)
                     LabeledContent("Currency") {
                         Picker("Currency", selection: $currency) {
                             ForEach(Currency.allCases) { c in
@@ -21,7 +25,6 @@ struct MarketView: View {
                         .labelsHidden()
                     }
 
-                    // Unit toggle (g / ozt) — wiring into tiles comes next step
                     LabeledContent("Unit") {
                         Picker("Unit", selection: $unit) {
                             ForEach(UnitToggle.allCases) { u in
@@ -30,15 +33,21 @@ struct MarketView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.segmented)
-                        .fixedSize()                       // keeps the segmented control from stretching full width
+                        .fixedSize() // shrink to content size and not stretch to max
                         .frame(maxWidth: 260, alignment: .trailing) // cap width so it aligns nicely on small & large phones
                     }
                 }
 
-                // Data rows
                 ForEach(viewModel.rows) { ValueTile(model: $0) }
             }
             .navigationTitle("Market")
+            .navigationBarTitleDisplayMode(.large)
+            .contentMargins(.top, 12)
+            .scrollContentBackground(.hidden)
+            .background(Color.white)
+            .toolbarBackground(Color.appPurple, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .safeAreaInset(edge: .top) {
                 if let note = viewModel.notice, !note.isEmpty {
                     HStack(spacing: 8) {
@@ -80,23 +89,31 @@ struct MarketView: View {
                 }
             }
             .task {
+                // Restore saved prefs (if any) before first load
+                if let savedCurrency = UserDefaults.standard.string(forKey: MarketPrefs.currencyKey) {
+                    currency = savedCurrency
+                }
+                if let savedUnitRaw = UserDefaults.standard.string(forKey: MarketPrefs.unitKey),
+                   let savedUnit = UnitToggle(rawValue: savedUnitRaw) {
+                    unit = savedUnit
+                }
                 viewModel.performConnectivityNoticeUpdate()   // show banner immediately on first render
                 await viewModel.setUnit(.init(unit))
                 await viewModel.load(currency: currency)
             }
             .refreshable { await viewModel.load(currency: currency) }
             .onChange(of: currency) { _ in
+                UserDefaults.standard.set(currency, forKey: MarketPrefs.currencyKey)
                 Task { await viewModel.load(currency: currency) }
             }
             .onChange(of: unit) { _ in
+                UserDefaults.standard.set(unit.rawValue, forKey: MarketPrefs.unitKey)
                 Task {
                     await viewModel.setUnit(.init(unit))
                     await viewModel.load(currency: currency)
                 }
             }
-            
         }
-        .tint(.appPurple)
     }
 }
 

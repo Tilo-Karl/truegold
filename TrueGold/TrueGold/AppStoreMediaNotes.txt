@@ -1,0 +1,28 @@
+App Store Media Notes (TrueGold)
+
+📸 Screenshots
+    •    Apple’s universal standard: 6.9″ iPhones (e.g. iPhone 14 Pro Max, 16 Pro Max).
+    •    Take screenshots on the iPhone 16 Pro Max simulator.
+    •    App Store Connect will auto-scale them for all other iPhones.
+    •    Required resolution: 1290 × 2796 px (portrait).
+
+🎥 App Preview Videos
+    •    Apple still uses the 6.5″ class for videos.
+    •    Required resolution: 886 × 1920 px (portrait).
+    •    Must include an audio track (even silent).
+
+Options for recording:
+    1.    Record on iPhone 11 Pro Max (or XS Max) simulator
+    •    Already in native 6.5″ resolution → no scaling needed.
+    •    If no audio track, add one with ffmpeg:
+./ffmpeg -i Video.mp4 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest -c:v copy -c:a aac -b:a 128k Video_READY.mp4
+    2.    Record on iPhone 16 Pro Max simulator
+    •    Outputs 6.9″ resolution → must scale to 886×1920.
+    •    Use ffmpeg to resize and add silent audio:
+./ffmpeg -i Video.mp4 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest -vf “scale=886:1920,setsar=1:1” -r 30 -c:v libx264 -crf 20 -preset slow -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart -f mp4 Video_READY.mp4
+
+📝 Summary
+    •    Screenshots → take on 6.9″ iPhone simulator.
+    •    Videos → Apple wants 6.5″ size (886×1920).
+    •    If you use iPhone 11 Pro Max sim → no scaling, only silent audio mux.
+    •    If you use iPhone 16 Pro Max sim → scale + add silent audio with ffmpeg.
