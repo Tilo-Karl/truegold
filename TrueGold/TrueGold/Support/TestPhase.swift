@@ -77,7 +77,7 @@ enum TestPhase {
     // Utility function called in GoldPriceViewModel init
     static func clearUserDefaultsIfNeeded() {
         guard clearCache else { return }
-        print("🧹 Clearing cached exchange rates from UserDefaults [TestPhase: \(currentPhase)]")
+        Logger.log("TestPhase", "🧹 Clearing cached exchange rates from UserDefaults [TestPhase: \(currentPhase)]")
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: "ExchangeRateCache_ALL_rates")
         defaults.removeObject(forKey: "ExchangeRateCache_ALL_timestamp")

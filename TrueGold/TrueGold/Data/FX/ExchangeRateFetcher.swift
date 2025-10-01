@@ -173,19 +173,19 @@ struct ExchangeRate {
     
     func safeConvert(amount: Double, from base: String, to target: String) -> Double {
         if base == target {
-            print("💱 No conversion needed: \(amount) \(base) = \(amount) \(target)")
+            Logger.log("ExchangeRate", "No conversion needed: \(amount) \(base) = \(amount) \(target)")
             return amount
         }
 
         guard let baseRate = rates[base],
               let targetRate = rates[target] else {
-            print("❌ Missing exchange rate for \(base) or \(target) – cannot convert")
+            Logger.log("ExchangeRate", "Missing exchange rate for \(base) or \(target) – cannot convert")
             return 0.0
         }
 
         let result = amount / baseRate * targetRate
 
-        print("💱 Converted \(amount) \(base) → \(result) \(target) using USD as base")
+        Logger.log("ExchangeRate", "Converted \(amount) \(base) → \(result) \(target) using USD as base")
         return result
     }
     

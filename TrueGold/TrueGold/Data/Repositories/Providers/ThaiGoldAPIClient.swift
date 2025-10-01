@@ -5,6 +5,13 @@
 //  Created by Tilo Delau on 2025-09-15.
 //
 //  Don't use rawJewelrySell, but keep it so we know the data is there.
+//
+// NOTE: This client uses manual JSON parsing with JSONSerialization instead of Codable.
+// Reason: I want to keep a visible reference of the raw API response structure here.
+// In other parts of the project I use Codable + structs, but for this file the
+// dictionary-based approach makes it easier to inspect and understand the API pattern.
+//
+// ⚠️ Intentional duplication: This is for learning/reference, not a production limitation.
 
 import Foundation
 
@@ -17,7 +24,7 @@ class ThaiGoldAPIClient {
 
     func fetchThaiGoldQuote(completion: @escaping (ThaiGoldQuote?) -> Void) {
         guard let url = URL(string: apiURL) else {
-            print("❌ Invalid ThaiGoldAPIClient URL")
+            Logger.log("ThaiGoldAPIClient", "❌ Invalid URL")
             completion(nil)
             return
         }
@@ -27,7 +34,7 @@ class ThaiGoldAPIClient {
 
         URLSession.shared.dataTask(with: request) { data, _, error in
             guard let data = data, error == nil else {
-                print("❌ ThaiGoldAPIClient network error: \(error?.localizedDescription ?? "Unknown error")")
+                Logger.log("ThaiGoldAPIClient", "❌ Network error: \(error?.localizedDescription ?? "Unknown error")")
                 DispatchQueue.main.async { completion(nil) }
                 return
             }
@@ -58,18 +65,18 @@ class ThaiGoldAPIClient {
                         date: Date()
                     )
 
-                    print("✅ ThaiGoldAPIClient Success – BarSell (raw buy): \(rawBarBuy), BarBuy (raw sell): \(rawBarSell), JewelrySell (raw buy): \(rawJewelryBuy)")
+                    Logger.log("ThaiGoldAPIClient", "✅ Success – BarSell (raw buy): \(rawBarBuy), BarBuy (raw sell): \(rawBarSell), JewelrySell (raw buy): \(rawJewelryBuy)")
                     
                     if quote.dblBarBuy > quote.dblBarSell {
                         Logger.log("ThaiGoldAPIClient", "⚠️ Suspicious quote – BarBuy (\(quote.dblBarBuy)) > BarSell (\(quote.dblBarSell))")
                     }
                     DispatchQueue.main.async { completion(quote) }
                 } else {
-                    print("❌ ThaiGoldAPIClient JSON parse error: missing keys or invalid format")
+                    Logger.log("ThaiGoldAPIClient", "❌ JSON parse error: missing keys or invalid format")
                     DispatchQueue.main.async { completion(nil) }
                 }
             } catch {
-                print("❌ ThaiGoldAPIClient JSON decoding error: \(error.localizedDescription)")
+                Logger.log("ThaiGoldAPIClient", "❌ JSON decoding error: \(error.localizedDescription)")
                 DispatchQueue.main.async { completion(nil) }
             }
         }.resume()

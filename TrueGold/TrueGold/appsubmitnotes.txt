@@ -1,0 +1,50 @@
+App Store Submission Notes (True Gold)
+
+1. Disable export compliance prompt:
+   - TARGET → Info tab → Add property.
+   - Key: App Uses Non-Exempt Encryption
+   - Type: Boolean
+   - Value: NO
+
+2. Supported iOS Version:
+   - Target: iOS 18.5 (cleanest for dev/testing, avoids iOS 17.x visual bug).
+
+3. Screenshots & Preview Video
+    •    Apple requires coverage for all device size classes, but will auto-scale from either 6.5″ or 6.9″ uploads.
+    •    The preview video must be submitted under the 6.5″ slot (886 × 1920 px, portrait).
+    •    If you upload 6.9″ screenshots, they do not satisfy the 6.5″ slot — you must also upload at least one 6.5″ screenshot alongside the video.
+    •    It’s not fully clear whether Apple scales 6.5 → 6.9 or 6.9 → 6.5, so safest is to supply both 6.5″ and 6.9″ screenshots.
+    •    If you record on iPhone 11 Pro Max (6.5″), the raw video fits the required size and avoids the ffmpeg scaling workaround.
+
+4. ffmpeg (if scaling needed):
+   ./ffmpeg -i Video.mp4 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest -vf "scale=886:1920,setsar=1:1" -r 30 -c:v libx264 -crf 20 -preset slow -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart -f mp4 Video_READY.mp4
+
+5. App Store Connect Metadata:
+   - Fill in App Name, Subtitle, Promotional Text, Description.
+   - Add Keywords.
+   - Upload App Icon and marketing screenshots.
+
+6. Support & Privacy URLs:
+   - Point to GitHub Pages (https://tilo-karl.github.io/tg/).
+
+7. Pricing:
+   - Set Price Tier: Free ($0.00, USD). This auto-adjusts to SEK and other currencies.
+
+8. Content Rights:
+   - Select “No third-party content” (fetching API data does not count).
+
+9. App Privacy:
+   - Fill in privacy questionnaire (App Privacy section).
+
+10. Age Rating:
+   - Answer “No” to all restricted-content categories → Rated 4+.
+
+11. Platform Availability:
+   - TURN OFF Apple Silicon Mac availability.
+   - TURN OFF Apple Vision Pro availability.
+   - Ship for iPhone (and iPad if acceptable).
+
+12. Export Compliance:
+   - Do not pre-fill the encryption documentation modal.
+   - Submit normally; Apple will ask export compliance during submission flow.
+   - Update, Apple did not ask any compliance question after clicking review button
