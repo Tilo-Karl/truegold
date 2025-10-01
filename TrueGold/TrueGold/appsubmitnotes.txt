@@ -1,75 +1,81 @@
-App Store Submission Notes (True Gold)
+App Store Submission Notes (True Gold)  
+1. Disable export compliance prompt:  
+    1.1 TARGET → Info tab → Add property.  
+    1.2 Key: App Uses Non-Exempt Encryption  
+    1.3 Type: Boolean  
+    1.4 Value: NO  
 
-0. Remember to increment version if already on the app store.
+2. Supported iOS Version:  
+    2.1 Target: iOS 18.5 (cleanest for dev/testing, avoids iOS 17.x visual bug).  
 
-1. Disable export compliance prompt:
-   - TARGET → Info tab → Add property.
-   - Key: App Uses Non-Exempt Encryption
-   - Type: Boolean
-   - Value: NO
+3. Screenshots & Preview Video  
+    3.1 Apple requires coverage for all device size classes, but will auto-scale from either 6.5″ or 6.9″ uploads.  
+    3.2 The preview video must be submitted under the 6.5″ slot → 886 × 1920 px (portrait) or 1920 × 886 (landscape).  
+    3.3 No device records at these dimensions natively — you must scale/crop.  
+    3.4 If you upload 6.9″ screenshots, they do not satisfy the 6.5″ slot — you must also upload at least one 6.5″ screenshot alongside the video.  
+    3.5 Safest: supply both 6.5″ and 6.9″ screenshots.  
 
-2. Supported iOS Version:
-   - Target: iOS 18.5 (cleanest for dev/testing, avoids iOS 17.x visual bug).
+4. ffmpeg (for scaling app preview videos):  
+    4.1 From an iPhone 11 Pro Max recording (1242×2688 portrait):  
+        ffmpeg -i INPUT.mov -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest -vf “scale=-2:1920,crop=886:1920” -r 30 -c:v libx264 -profile:v high -level 4.1 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 128k -ar 44100 -ac 2 OUTPUT_886x1920.mp4  
+    4.2 Notes:  
+        - Add silent audio track if missing, or Apple may reject.  
+        - Landscape variant:  
+            ffmpeg -i INPUT.mov -vf “scale=1920:-2,crop=1920:886” -r 30 -c:v libx264 -profile:v high -level 4.1 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 128k -ar 44100 -ac 2 OUTPUT_1920x886.mp4  
 
-3. Screenshots & Preview Video
-    •    Apple requires coverage for all device size classes, but will auto-scale from either 6.5″ or 6.9″ uploads.
-    •    The preview video must be submitted under the 6.5″ slot (886 × 1920 px, portrait).
-    •    If you upload 6.9″ screenshots, they do not satisfy the 6.5″ slot — you must also upload at least one 6.5″ screenshot alongside the video.
-    •    It’s not fully clear whether Apple scales 6.5 → 6.9 or 6.9 → 6.5, so safest is to supply both 6.5″ and 6.9″ screenshots.
-    •    If you record on iPhone 11 Pro Max (6.5″), the raw video fits the required size and avoids the ffmpeg scaling workaround.
+5. App Store Connect Metadata:  
+    5.1 Fill in App Name, Subtitle, Promotional Text, Description.  
+    5.2 Add Keywords.  
+    5.3 Upload App Icon and marketing screenshots.  
 
-4. ffmpeg (if scaling needed):
-   ./ffmpeg -i Video.mp4 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest -vf "scale=886:1920,setsar=1:1" -r 30 -c:v libx264 -crf 20 -preset slow -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart -f mp4 Video_READY.mp4
+6. Support & Privacy URLs:  
+    6.1 Point to GitHub Pages (https://tilo-karl.github.io/tg/).  
 
-5. App Store Connect Metadata:
-   - Fill in App Name, Subtitle, Promotional Text, Description.
-   - Add Keywords.
-   - Upload App Icon and marketing screenshots.
+7. Pricing:  
+    7.1 Set Price Tier: Free ($0.00, USD). This auto-adjusts to SEK and other currencies.  
 
-6. Support & Privacy URLs:
-   - Point to GitHub Pages (https://tilo-karl.github.io/tg/).
+8. Content Rights:  
+    8.1 Select “No third-party content” (fetching API data does not count).  
 
-7. Pricing:
-   - Set Price Tier: Free ($0.00, USD). This auto-adjusts to SEK and other currencies.
+9. App Privacy:  
+    9.1 Fill in privacy questionnaire (App Privacy section).  
 
-8. Content Rights:
-   - Select “No third-party content” (fetching API data does not count).
+10. Age Rating:  
+    10.1 Answer “No” to all restricted-content categories → Rated 4+.  
 
-9. App Privacy:
-   - Fill in privacy questionnaire (App Privacy section).
+11. Platform Availability:  
+    11.1 TURN OFF Apple Silicon Mac availability.  
+    11.2 TURN OFF Apple Vision Pro availability.  
+    11.3 Ship for iPhone (and iPad if acceptable).  
 
-10. Age Rating:
-   - Answer “No” to all restricted-content categories → Rated 4+.
+12. Export Compliance:  
+    12.1 Do not pre-fill the encryption documentation modal.  
+    12.2 Submit normally; Apple will ask export compliance during submission flow.  
+    12.3 (Update: Apple did not ask any compliance question after clicking review button.)  
 
-11. Platform Availability:
-   - TURN OFF Apple Silicon Mac availability.
-   - TURN OFF Apple Vision Pro availability.
-   - Ship for iPhone (and iPad if acceptable).
+13. Launch Screen (no storyboard):  
+    13.1 Target → Info tab.  
+    13.2 Expand Launch Screen (UILaunchScreen dictionary).  
+    13.3 Add Image Name (Xcode label; plist key = UIImageName).  
+    13.4 Type AppIcon or another image in assets.  
+    13.5 Optional: add background color.  
+    13.6 Done. Cold launches are fast, you may barely see it.  
 
-12. Export Compliance:
-   - Do not pre-fill the encryption documentation modal.
-   - Submit normally; Apple will ask export compliance during submission flow.
-   - Update, Apple did not ask any compliance question after clicking review button
-   
-✅ Correct way to set app icon as launch image (don't need storyboard):
+14. App Icon in Settings (True Blocker note):  
+    14.1 Device cache is permanent and the app icon in settings won’t change once built.  
+    14.2 iOS must update or erase data to change. Or use another bundle ID.  
+    14.3 It works on other phones and the App Store even if you see empty graph icon.  
+    14.4 Just do normal, single 1024×1024 in the host app.  
 
-    1. Go to target → Info tab.
-    2. Expand **Launch Screen** (this is a Dictionary named `UILaunchScreen`).
-    3. Add **Image Name** (this is the Xcode UI label; the underlying plist key is `UIImageName`).
-    4. Type in "AppIcon" or alternative image in assets
-    5. Optional: add **Background color** to match your icon.
-    6. Done — no storyboard needed.
-    7. I think must delete app and reinstall, but its fast, can't see.
+15. Uploading a New Version (App Store Connect quirks):  
+    15.1 Increment version number if already on the App Store (e.g. from 1.0 → 1.1).  
+    15.2 Reset build number back to 1 for each new version. If you resubmit the same version, increment build (1, 2, 3…).  
+    15.3 After creating the new version in App Store Connect, fill in metadata (What’s New, Promo Text, Description, Keywords).  
+    15.4 Click Save → this commits the default locale (English U.S.).  
+    15.5 Screenshots/App Previews stay blocked with the red error “Please save new locales…” until BOTH steps are done:  
+        15.5.1 Save the metadata at least once.  
+        15.5.2 Attach a build under the Build section (Add Build). Apple requires a build before media uploads are accepted.  
+    15.6 Workaround if uploads still blocked: open “View All Sizes in Media Manager,” then return — this refreshes the uploader.  
+    15.7 Screenshots are per-device, but you only need them once (default locale). Apple reuses globally unless you add localizations.  
 
-    • If the image doesn’t show, create a normal Image Set in Assets (e.g., `LaunchImage`) and reference that instead of the App Icon set.
-    • `UILaunchScreen` shows as a Dictionary by design; Xcode stores `UIImageName` under it.
-    • Cold launches are fast; you may barely see it. That’s expected.
-
-✅ Correct way to set app icon in settings (like True Blocker):
-
-    Device cache is permanent and the app icon in settings will not change once built.
-    iOS must update or Erase data to change the AppIcon.
-    Or use another bundleID
-    It works on other phones and even the AppStore even if you see empty graph icon
-    
-    Just do normal, single 1024x1024 in the host app and settings will take that icon.
+16.
