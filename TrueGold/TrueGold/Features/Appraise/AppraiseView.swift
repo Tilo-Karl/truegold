@@ -61,6 +61,7 @@ struct AppraiseView: View {
     @State private var weight: String = ""
     @State private var unit: Unit = .gram
     @State private var currencyCode: String = "USD"
+    @State private var comparisonPrice: String = ""
     @FocusState private var weightFocused: Bool
     @StateObject private var kb = KeyboardObserver()
 
@@ -123,7 +124,7 @@ var body: some View {
                     }
 
                     Section("Result") {
-                        resultSection(viewModel)
+                        resultSection(viewModel, comparisonPrice: $comparisonPrice)
                     }
                     
                     Section {
@@ -216,6 +217,7 @@ private func appraiseCTA() -> some View {
 private func handleAppraiseTap() {
     weightFocused = false
     UIApplication.shared.endEditing()
+    comparisonPrice = ""
     let sanitized = weight.replacingOccurrences(of: ",", with: ".")
     guard let input = Double(sanitized), input > 0 else {
         viewModel.errorMessage = "Please enter a valid weight"
@@ -453,11 +455,12 @@ private extension UIApplication {
     // MARK: - Result Section Helper
     @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
     @ViewBuilder
-    private func resultSection(_ vm: AppraiseViewModel) -> some View {
+    private func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>) -> some View {
         if vm.isLoading {
             HStack { ProgressView(); Text("Appraising…") }
         } else if let r = vm.result {
             VStack(alignment: .leading, spacing: 8) {
+                // Base melt output
                 HStack {
                     Text("Per gram")
                     Spacer()
@@ -476,6 +479,44 @@ private extension UIApplication {
                 Text(r.note)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+
+                // --- Comparison UI (appears only after a result exists) ---
+                Divider().padding(.vertical, 4)
+                Text("Compare against another price")
+                    .font(.subheadline.weight(.semibold))
+
+                TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
+                    .keyboardType(.decimalPad)
+
+                // Derived comparison rows (only when input is valid)
+                if let comp = Double(comparisonPrice.wrappedValue.replacingOccurrences(of: ",", with: ".")), comp > 0 {
+                    let diff = comp - r.total
+                    let pct = (diff / max(r.total, 0.000001)) * 100 // guard div-by-zero (defensive)
+                    let isMarkup = diff >= 0
+
+                    HStack {
+                        Text("Comparison")
+                        Spacer()
+                        Text("\(r.currency) \(comp.formatted(.number.precision(.fractionLength(2))))")
+                            .monospacedDigit()
+                    }
+                    HStack {
+                        Text(isMarkup ? "Markup" : "Discount")
+                        Spacer()
+                        Text("\(diff >= 0 ? "+" : "-")\(r.currency) \(abs(diff).formatted(.number.precision(.fractionLength(2)))) (\(String(format: "%0.1f", abs(pct)))%)")
+                            .monospacedDigit()
+                            .foregroundColor(isMarkup ? .red : .green)
+                    }
+                } else if !comparisonPrice.wrappedValue.isEmpty {
+                    // Soft validation hint
+                    Text("Please enter a valid number.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("If you want to compare with another price, enter it above.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         } else if let e = vm.errorMessage {
             Label(e, systemImage: "exclamationmark.triangle")
