@@ -48,3 +48,26 @@ App Store Submission Notes (True Gold)
    - Do not pre-fill the encryption documentation modal.
    - Submit normally; Apple will ask export compliance during submission flow.
    - Update, Apple did not ask any compliance question after clicking review button
+   
+✅ Correct way to set app icon as launch image (don't need storyboard):
+
+    1. Go to target → Info tab.
+    2. Expand **Launch Screen** (this is a Dictionary named `UILaunchScreen`).
+    3. Add **Image Name** (this is the Xcode UI label; the underlying plist key is `UIImageName`).
+    4. Type in "AppIcon" or alternative image in assets
+    5. Optional: add **Background color** to match your icon.
+    6. Done — no storyboard needed.
+    7. I think must delete app and reinstall, but its fast, can't see.
+
+    • If the image doesn’t show, create a normal Image Set in Assets (e.g., `LaunchImage`) and reference that instead of the App Icon set.
+    • `UILaunchScreen` shows as a Dictionary by design; Xcode stores `UIImageName` under it.
+    • Cold launches are fast; you may barely see it. That’s expected.
+
+✅ Correct way to set app icon in settings (like True Blocker):
+
+    Device cache is permanent and the app icon in settings will not change once built.
+    iOS must update or Erase data to change the AppIcon.
+    Or use another bundleID
+    It works on other phones and even the AppStore even if you see empty graph icon
+    
+    Just do normal, single 1024x1024 in the host app and settings will take that icon.
