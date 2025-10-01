@@ -5,6 +5,13 @@
 //  Fetches public spot quotes (bid/ask) from Swissquote and returns midpoint.
 //  No API key required. Use for showcase/dev; check terms before shipping commercially.
 //
+//
+// PARSING STYLE — Codable / "Swifty" approach.
+// This fetcher uses strongly typed Decodable models with JSONDecoder,
+// which is the idiomatic Swift style for production.
+// Contrast with ThaiGoldAPIClient.swift, which intentionally uses
+// manual JSONSerialization for reference and debugging.
+//
 
 import Foundation
 

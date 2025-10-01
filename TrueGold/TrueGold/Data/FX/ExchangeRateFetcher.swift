@@ -15,6 +15,12 @@
 //     falling back to default ratios (1.0 or 2.0) if rates are missing to avoid crash.
 //     This ensures the app always displays a value, even when incomplete data is present.
 //
+// DESIGN NOTE — Why `class` instead of `struct`?
+// ExchangeRateFetcher is a shared service object with a singleton (`shared`).
+// We want reference semantics so all parts of the app talk to the same instance,
+// managing cache, network requests, and fallbacks centrally.
+// A struct would create copies; a class ensures shared state.
+//
 
 import Foundation
 
@@ -156,8 +162,9 @@ class ExchangeRateFetcher {
         return ExchangeRate(rates: hardcoded)
     }
 
-    // MARK: - API Response Model
-
+    // PARSING STYLE — Codable / "Swifty" approach.
+    // This struct demonstrates the idiomatic Swift style of decoding JSON
+    // directly into strongly typed models using Decodable.
     private struct ERAPIResponse: Decodable {
         let result: String
         let base_code: String
@@ -190,4 +197,3 @@ struct ExchangeRate {
     }
     
 }
-

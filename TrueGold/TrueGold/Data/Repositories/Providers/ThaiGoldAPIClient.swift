@@ -6,12 +6,20 @@
 //
 //  Don't use rawJewelrySell, but keep it so we know the data is there.
 //
-// NOTE: This client uses manual JSON parsing with JSONSerialization instead of Codable.
-// Reason: I want to keep a visible reference of the raw API response structure here.
-// In other parts of the project I use Codable + structs, but for this file the
-// dictionary-based approach makes it easier to inspect and understand the API pattern.
+// PARSING STYLE — intentionally manual here.
+// We use JSONSerialization in this client to keep the raw API shape visible for reference & debugging.
+// Elsewhere in the app we use Codable + structs; this file is the exception by design.
 //
-// ⚠️ Intentional duplication: This is for learning/reference, not a production limitation.
+// Why not Codable here?
+// • Transparency while the upstream payload occasionally changes (commas-as-thousands, naming quirks).
+// • Easier to log/inspect exact keys/values during live debugging.
+// Guarantees in this file:
+// • Keys are validated before use; numeric strings are normalized ("," removed) before Double init.
+// • Any schema mismatch logs a clear parse error and returns nil (no partial/undefined state).
+//
+// Migration note:
+// If/when the API stabilizes, replace this with a Codable model in one go (don’t keep both styles in the same module).
+// Canonical Codable examples live elsewhere in the project.
 
 import Foundation
 
