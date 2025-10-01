@@ -1,5 +1,7 @@
 App Store Submission Notes (True Gold)
 
+0. Remember to increment version if already on the app store.
+
 1. Disable export compliance prompt:
    - TARGET → Info tab → Add property.
    - Key: App Uses Non-Exempt Encryption
