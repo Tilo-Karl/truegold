@@ -1,49 +1,5 @@
 import SwiftUI
 
-private final class KeyboardObserver: ObservableObject {
-    @Published var height: CGFloat = 0
-
-    init() {
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handle(notification:)),
-                                               name: UIResponder.keyboardWillChangeFrameNotification,
-                                               object: nil)
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handle(notification:)),
-                                               name: UIResponder.keyboardWillHideNotification,
-                                               object: nil)
-    }
-
-    @objc private func handle(notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let endFrame = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else {
-            self.height = 0
-            return
-        }
-        // Translate keyboard height into a bottom inset, minus safe-area so we don't double-inset
-        let screen = UIScreen.main.bounds
-        let overlap = max(0, screen.maxY - endFrame.minY)
-        let safeBottom: CGFloat = UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
-            .first ?? 0
-        let target = max(0, overlap - safeBottom)
-
-        // Animate to match the keyboard
-        if let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-           let curveRaw = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt {
-            let options = UIView.AnimationOptions(rawValue: curveRaw << 16)
-            UIView.animate(withDuration: duration, delay: 0, options: options) {
-                self.height = target
-            }
-        } else {
-            self.height = target
-        }
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-}
 
 private enum AppraisePrefs {
     static let currencyKey = "Appraise.lastCurrencyCode"
@@ -58,12 +14,11 @@ struct AppraiseView: View {
     // Local user inputs
     @State private var metal: Metal = .gold
     @State private var purity: Purity = .k24
-    @State private var weight: String = ""
+    @State var weight: String = ""
     @State private var unit: Unit = .gram
-    @State private var currencyCode: String = "USD"
-    @State private var comparisonPrice: String = ""
-    @FocusState private var weightFocused: Bool
-    @StateObject private var kb = KeyboardObserver()
+    @State var currencyCode: String = "USD"
+    @State var comparisonPrice: String = ""
+    @FocusState var weightFocused: Bool
 
     // Units allowed for the currently selected metal
     private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
@@ -126,17 +81,11 @@ var body: some View {
                     Section("Result") {
                         resultSection(viewModel, comparisonPrice: $comparisonPrice)
                     }
-                    
-                    Section {
-                        appraiseCTA()
-                    }
                 }
                 .scrollContentBackground(.hidden)
             }
-            .offset(y: -kb.height / 1.5)
-            .animation(.easeOut(duration: 0.25), value: kb.height)
-            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
+        
         .onChange(of: metal) { _ in
             // If current unit isn't valid for the newly selected metal, reset to grams
             if !allowedUnits.contains(unit) { unit = .gram }
@@ -191,6 +140,12 @@ var body: some View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            appraiseCTA()
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+        }
         .navigationTitle("Appraise")
         .toolbarBackground(Color.appPurple, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -200,7 +155,7 @@ var body: some View {
 
 // MARK: - Reusable CTA - don't need @MainActor because SwiftUI knows button is for main thread
 @ViewBuilder
-private func appraiseCTA() -> some View {
+func appraiseCTA() -> some View {
     Button {
         handleAppraiseTap()
     } label: {
@@ -214,7 +169,7 @@ private func appraiseCTA() -> some View {
 }
 
 // MARK: - Actions
-private func handleAppraiseTap() {
+func handleAppraiseTap() {
     weightFocused = false
     UIApplication.shared.endEditing()
     comparisonPrice = ""
@@ -263,7 +218,7 @@ private func handleAppraiseTap() {
 
     // MARK: - Pickers (hide internal labels; outer labels remain in rows)
 
-    private func metalPicker() -> some View {
+    func metalPicker() -> some View {
         Picker("Metal", selection: $metal) {
             Text("Gold").tag(Metal.gold)
             Text("Silver").tag(Metal.silver)
@@ -273,7 +228,7 @@ private func handleAppraiseTap() {
         .labelsHidden()
     }
  
-    private func purityPicker() -> some View {
+    func purityPicker() -> some View {
         Picker("Purity", selection: $purity) {
             ForEach(allowedPurities) { p in
                 Text(p.purityPickerLabel).tag(p)
@@ -286,7 +241,7 @@ private func handleAppraiseTap() {
         
     }
     
-    private func unitPicker() -> some View {
+    func unitPicker() -> some View {
         Picker(selection: $unit, label: Text(unit.unitPickerLabel)) {
             ForEach(allowedUnits) { u in
                 Text(u.unitPickerLabel).tag(u)
@@ -296,7 +251,7 @@ private func handleAppraiseTap() {
         .pickerStyle(.menu) // 2 lines because picker is retarded and won't shrink
     }
 
-    private func currencyPicker() -> some View {
+    func currencyPicker() -> some View {
         Picker("Currency", selection: $currencyCode) {
             ForEach(Currency.allCases) { c in
                 Text("\(c.flagEmoji) \(c.code)").tag(c.code)
@@ -446,16 +401,10 @@ private enum Purity: String, CaseIterable, Identifiable {
     }
 }
 
-private extension UIApplication {
-    func endEditing() {
-        sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-}
-
     // MARK: - Result Section Helper
     @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
     @ViewBuilder
-    private func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>) -> some View {
+    func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>) -> some View {
         if vm.isLoading {
             HStack { ProgressView(); Text("Appraising…") }
         } else if let r = vm.result {
@@ -526,3 +475,4 @@ private extension UIApplication {
                 .foregroundStyle(.secondary)
         }
     }
+

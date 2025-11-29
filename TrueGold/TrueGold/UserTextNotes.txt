@@ -1,0 +1,22 @@
+User Test Notes (v1.1)
+	1.	Expectation mismatch between Market View and Appraisal View
+	•	User expected unit + currency selections in Market View to carry over automatically into Appraisal View.
+	•	Current behavior: settings are independent, which felt inconsistent.
+	2.	Comparison Price visibility issues
+	•	User did not notice the “Comparison Price” input after pressing Appraise.
+	•	Field was hidden behind the keyboard → no visual cue to scroll.
+	•	Because of this, user repeatedly pressed Appraise expecting results.
+	3.	Comparison result reactivity misunderstood
+	•	Comparison result updates instantly as the user types, but user expected to press Appraise again to see differences.
+	•	This led to confusion: “Why press Appraise if it already changes?”
+
+⸻
+
+Action Items for UX Fixes
+	•	Sync unit + currency between Market View and Appraisal View (shared state / persistence).
+	•	Improve visibility of Comparison Price input:
+	•	Auto-scroll view up when field is focused.
+	•	Possibly add placeholder text or highlight after appraisal result.
+	•	Clarify comparison behavior:
+	•	Option A: Hide comparison until appraisal pressed → flows with mental model.
+	•	Option B: Keep instant updates but add label (“Updates as you type”).
