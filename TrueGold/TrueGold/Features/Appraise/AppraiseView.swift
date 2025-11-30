@@ -1,5 +1,10 @@
+//
+//  AppraiseView.swift
+//  TrueGold
+//
+//  Created by Tilo Delau on 2025-10-03.
+//
 import SwiftUI
-
 
 private enum AppraisePrefs {
     static let currencyKey = "Appraise.lastCurrencyCode"
@@ -18,6 +23,7 @@ struct AppraiseView: View {
     @State private var unit: Unit = .gram
     @State var currencyCode: String = "USD"
     @State var comparisonPrice: String = ""
+    @State private var compareHighlight: Bool = false
     @FocusState var weightFocused: Bool
 
     // Units allowed for the currently selected metal
@@ -79,7 +85,7 @@ var body: some View {
                     }
 
                     Section("Result") {
-                        resultSection(viewModel, comparisonPrice: $comparisonPrice)
+                        resultSection(viewModel, comparisonPrice: $comparisonPrice, compareHighlight: $compareHighlight)
                     }
                 }
                 .scrollContentBackground(.hidden)
@@ -404,7 +410,7 @@ private enum Purity: String, CaseIterable, Identifiable {
     // MARK: - Result Section Helper
     @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
     @ViewBuilder
-    func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>) -> some View {
+    func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>, compareHighlight: Binding<Bool>) -> some View {
         if vm.isLoading {
             HStack { ProgressView(); Text("Appraising…") }
         } else if let r = vm.result {
@@ -431,48 +437,90 @@ private enum Purity: String, CaseIterable, Identifiable {
 
                 // --- Comparison UI (appears only after a result exists) ---
                 Divider().padding(.vertical, 4)
-                Text("Compare against another price")
-                    .font(.subheadline.weight(.semibold))
+                Group {
+                    Text("Compare against another price")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.appPurple)
+                        .scaleEffect(compareHighlight.wrappedValue ? 1.18 : 1.0)
+                    TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
+                        .keyboardType(.decimalPad)
 
-                TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
-                    .keyboardType(.decimalPad)
+                    // Derived comparison rows (only when input is valid)
+                    if let comp = Double(comparisonPrice.wrappedValue.replacingOccurrences(of: ",", with: ".")), comp > 0 {
+                        let diff = comp - r.total
+                        let pct = (diff / max(r.total, 0.000001)) * 100 // guard div-by-zero (defensive)
+                        let isMarkup = diff >= 0
 
-                // Derived comparison rows (only when input is valid)
-                if let comp = Double(comparisonPrice.wrappedValue.replacingOccurrences(of: ",", with: ".")), comp > 0 {
-                    let diff = comp - r.total
-                    let pct = (diff / max(r.total, 0.000001)) * 100 // guard div-by-zero (defensive)
-                    let isMarkup = diff >= 0
-
-                    HStack {
-                        Text("Comparison")
-                        Spacer()
-                        Text("\(r.currency) \(comp.formatted(.number.precision(.fractionLength(2))))")
-                            .monospacedDigit()
+                        HStack {
+                            Text("Comparison")
+                            Spacer()
+                            Text("\(r.currency) \(comp.formatted(.number.precision(.fractionLength(2))))")
+                                .monospacedDigit()
+                        }
+                        HStack {
+                            Text(isMarkup ? "Markup" : "Discount")
+                            Spacer()
+                            Text("\(diff >= 0 ? "+" : "-")\(r.currency) \(abs(diff).formatted(.number.precision(.fractionLength(2)))) (\(String(format: "%0.1f", abs(pct)))%)")
+                                .monospacedDigit()
+                                .foregroundColor(isMarkup ? .red : .green)
+                            /*
+                            Text("\(diff >= 0 ? \"+\" : \"-\")\(r.currency) \(abs(diff).formatted(.number.precision(.fractionLength(2)))) (\(String(format: \"%0.1f\", abs(pct)))%)")
+                                
+                             */
+                        }
+                    } else if !comparisonPrice.wrappedValue.isEmpty {
+                        // Soft validation hint
+                        Text("Please enter a valid number.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("If you want to compare with another price, enter it above.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
-                    HStack {
-                        Text(isMarkup ? "Markup" : "Discount")
-                        Spacer()
-                        Text("\(diff >= 0 ? "+" : "-")\(r.currency) \(abs(diff).formatted(.number.precision(.fractionLength(2)))) (\(String(format: "%0.1f", abs(pct)))%)")
-                            .monospacedDigit()
-                            .foregroundColor(isMarkup ? .red : .green)
+                }
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        compareHighlight.wrappedValue = true
                     }
-                } else if !comparisonPrice.wrappedValue.isEmpty {
-                    // Soft validation hint
-                    Text("Please enter a valid number.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("If you want to compare with another price, enter it above.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            compareHighlight.wrappedValue = false
+                        }
+                    }
+                }
+                .onChange(of: vm.result?.total ?? 0) { _ in
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        compareHighlight.wrappedValue = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            compareHighlight.wrappedValue = false
+                        }
+                    }
                 }
             }
         } else if let e = vm.errorMessage {
             Label(e, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
         } else {
-            Text("Enter details above, then tap Appraise.")
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("True Gold shows what your gold is actually worth, so you don’t get cheated.")
+                Text("Enter metal, purity and weight above, then tap Appraise.")
+            }
+            .font(.footnote)
+            .foregroundColor(compareHighlight.wrappedValue ? .appPurple : .secondary)
+            .scaleEffect(compareHighlight.wrappedValue ? 1.06 : 1.0)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    compareHighlight.wrappedValue = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        compareHighlight.wrappedValue = false
+                    }
+                }
+            }
         }
     }
 
