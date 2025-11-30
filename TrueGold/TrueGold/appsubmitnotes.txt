@@ -1,5 +1,18 @@
-App Store Submission Notes (True Gold)  
-1. Disable export compliance prompt:  
+
+Uploading a New Version (App Store Connect quirks):
+    1 Increment version number if already on the App Store (e.g. from 1.0 → 1.1).
+    1.1 Clean Archive once from Xcode Organizer to make sure the new build signs and uploads.
+    2 Reset build number back to 1 for each new version. If you resubmit the same version, increment build (1, 2, 3…). - but if its already on the appstore, only 1.0->1.1. 1.1.2 not accepted.
+    3 After creating the new version in App Store Connect, fill in metadata (What’s New, Promo Text, Description, Keywords).
+    4 Click Save → this commits the default locale (English U.S.).
+    5 Screenshots/App Previews stay blocked with the red error “Please save new locales…” until BOTH steps are done:
+        15.5.1 Save the metadata at least once.
+        15.5.2 Attach a build under the Build section (Add Build). Apple requires a build before media uploads are accepted.
+    6 Workaround if uploads still blocked: open “View All Sizes in Media Manager,” then return — this refreshes the uploader.
+    7 Screenshots are per-device, but you only need them once (default locale). Apple reuses globally unless you add localizations.
+    
+App Store Submission Notes (True Gold)
+1. Disable export compliance prompt:
     1.1 TARGET → Info tab → Add property.  
     1.2 Key: App Uses Non-Exempt Encryption  
     1.3 Type: Boolean  
@@ -13,7 +26,8 @@ App Store Submission Notes (True Gold)
     3.2 The preview video must be submitted under the 6.5″ slot → 886 × 1920 px (portrait) or 1920 × 886 (landscape).  
     3.3 No device records at these dimensions natively — you must scale/crop.  
     3.4 If you upload 6.9″ screenshots, they do not satisfy the 6.5″ slot — you must also upload at least one 6.5″ screenshot alongside the video.  
-    3.5 Safest: supply both 6.5″ and 6.9″ screenshots.  
+    3.5 Safest: supply both 6.5″ and 6.9″ screenshots.
+    3.6 simulators for screen shots: iPhone11ProMax (6.5), iPhone16ProMax(6.9), iPad_Pro_13-inch_(M4).
 
 4. ffmpeg (for scaling app preview videos):  
     4.1 From an iPhone 11 Pro Max recording (1242×2688 portrait):  
@@ -67,15 +81,6 @@ App Store Submission Notes (True Gold)
     14.3 It works on other phones and the App Store even if you see empty graph icon.  
     14.4 Just do normal, single 1024×1024 in the host app.  
 
-15. Uploading a New Version (App Store Connect quirks):  
-    15.1 Increment version number if already on the App Store (e.g. from 1.0 → 1.1).  
-    15.2 Reset build number back to 1 for each new version. If you resubmit the same version, increment build (1, 2, 3…).  
-    15.3 After creating the new version in App Store Connect, fill in metadata (What’s New, Promo Text, Description, Keywords).  
-    15.4 Click Save → this commits the default locale (English U.S.).  
-    15.5 Screenshots/App Previews stay blocked with the red error “Please save new locales…” until BOTH steps are done:  
-        15.5.1 Save the metadata at least once.  
-        15.5.2 Attach a build under the Build section (Add Build). Apple requires a build before media uploads are accepted.  
-    15.6 Workaround if uploads still blocked: open “View All Sizes in Media Manager,” then return — this refreshes the uploader.  
-    15.7 Screenshots are per-device, but you only need them once (default locale). Apple reuses globally unless you add localizations.  
 
-16.
+
+
