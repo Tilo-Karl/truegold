@@ -5,7 +5,6 @@
 //  Created by Tilo Delau on 2025-10-03.
 //
 import SwiftUI
-import UIKit
 
 private enum AppraisePrefs {
     static let currencyKey = "Appraise.lastCurrencyCode"
@@ -25,7 +24,7 @@ struct AppraiseView: View {
     @State private var currencyCode: String = "USD"
     @State private var comparisonPrice: String = ""
     @State private var pulseHighlight: Bool = false
-    @FocusState private var weightFocused: Bool
+    @FocusState private var isInputFocused: Bool
 
     // Units allowed for the currently selected metal
     private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
@@ -71,11 +70,7 @@ var body: some View {
                         HStack(spacing: 12) {
                             TextField("Enter weight", text: $weight)
                                 .keyboardType(.decimalPad)
-                                .focused($weightFocused)
-                                
-                            // I don't know why but removing Spacer() gave me
-                            // more room for Lượng (VN) (37.50g) on 2 lines instead of 3
-                            //Spacer()
+                                .focused($isInputFocused)
                             unitPicker()
                         }
                         HStack {
@@ -86,7 +81,12 @@ var body: some View {
                     }
 
                     Section("Result") {
-                        resultSection(viewModel, comparisonPrice: $comparisonPrice, pulseHighlight: $pulseHighlight)
+                        resultSection(
+                            viewModel,
+                            comparisonPrice: $comparisonPrice,
+                            pulseHighlight: $pulseHighlight,
+                            isInputFocused: $isInputFocused
+                        )
                     }
                 }
                 .scrollContentBackground(.hidden)
@@ -177,8 +177,7 @@ func appraiseCTA() -> some View {
 
 // MARK: - Actions
 func handleAppraiseTap() {
-    weightFocused = false
-    UIApplication.shared.endEditing()
+    isInputFocused = false
     comparisonPrice = ""
     let sanitized = weight.replacingOccurrences(of: ",", with: ".")
     guard let input = Double(sanitized), input > 0 else {
@@ -411,7 +410,12 @@ private enum Purity: String, CaseIterable, Identifiable {
     // MARK: - Result Section Helper
     @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
     @ViewBuilder
-    func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>, pulseHighlight: Binding<Bool>) -> some View {
+    func resultSection(
+        _ vm: AppraiseViewModel,
+        comparisonPrice: Binding<String>,
+        pulseHighlight: Binding<Bool>,
+        isInputFocused: FocusState<Bool>.Binding
+    ) -> some View {
         if vm.isLoading {
             HStack { ProgressView(); Text("Appraising…") }
         } else if let r = vm.result {
@@ -445,6 +449,7 @@ private enum Purity: String, CaseIterable, Identifiable {
                         .scaleEffect(pulseHighlight.wrappedValue ? 1.18 : 1.0)
                     TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
                         .keyboardType(.decimalPad)
+                        .focused(isInputFocused)
 
                     // Derived comparison rows (only when input is valid)
                     if let comp = Double(comparisonPrice.wrappedValue.replacingOccurrences(of: ",", with: ".")), comp > 0 {
@@ -526,8 +531,3 @@ private enum Purity: String, CaseIterable, Identifiable {
     }
 
 
-extension UIApplication {
-    func endEditing() {
-        sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-}
