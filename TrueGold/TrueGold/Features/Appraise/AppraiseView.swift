@@ -5,6 +5,7 @@
 //  Created by Tilo Delau on 2025-10-03.
 //
 import SwiftUI
+import UIKit
 
 private enum AppraisePrefs {
     static let currencyKey = "Appraise.lastCurrencyCode"
@@ -19,12 +20,12 @@ struct AppraiseView: View {
     // Local user inputs
     @State private var metal: Metal = .gold
     @State private var purity: Purity = .k24
-    @State var weight: String = ""
+    @State private var weight: String = ""
     @State private var unit: Unit = .gram
-    @State var currencyCode: String = "USD"
-    @State var comparisonPrice: String = ""
-    @State private var compareHighlight: Bool = false
-    @FocusState var weightFocused: Bool
+    @State private var currencyCode: String = "USD"
+    @State private var comparisonPrice: String = ""
+    @State private var pulseHighlight: Bool = false
+    @FocusState private var weightFocused: Bool
 
     // Units allowed for the currently selected metal
     private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
@@ -85,7 +86,7 @@ var body: some View {
                     }
 
                     Section("Result") {
-                        resultSection(viewModel, comparisonPrice: $comparisonPrice, compareHighlight: $compareHighlight)
+                        resultSection(viewModel, comparisonPrice: $comparisonPrice, pulseHighlight: $pulseHighlight)
                     }
                 }
                 .scrollContentBackground(.hidden)
@@ -410,7 +411,7 @@ private enum Purity: String, CaseIterable, Identifiable {
     // MARK: - Result Section Helper
     @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
     @ViewBuilder
-    func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>, compareHighlight: Binding<Bool>) -> some View {
+    func resultSection(_ vm: AppraiseViewModel, comparisonPrice: Binding<String>, pulseHighlight: Binding<Bool>) -> some View {
         if vm.isLoading {
             HStack { ProgressView(); Text("Appraising…") }
         } else if let r = vm.result {
@@ -441,7 +442,7 @@ private enum Purity: String, CaseIterable, Identifiable {
                     Text("Compare against another price")
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.appPurple)
-                        .scaleEffect(compareHighlight.wrappedValue ? 1.18 : 1.0)
+                        .scaleEffect(pulseHighlight.wrappedValue ? 1.18 : 1.0)
                     TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
                         .keyboardType(.decimalPad)
 
@@ -481,21 +482,21 @@ private enum Purity: String, CaseIterable, Identifiable {
                 }
                 .onAppear {
                     withAnimation(.easeInOut(duration: 0.22)) {
-                        compareHighlight.wrappedValue = true
+                        pulseHighlight.wrappedValue = true
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                         withAnimation(.easeInOut(duration: 0.22)) {
-                            compareHighlight.wrappedValue = false
+                            pulseHighlight.wrappedValue = false
                         }
                     }
                 }
                 .onChange(of: vm.result?.total ?? 0) { _ in
                     withAnimation(.easeInOut(duration: 0.22)) {
-                        compareHighlight.wrappedValue = true
+                        pulseHighlight.wrappedValue = true
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                         withAnimation(.easeInOut(duration: 0.22)) {
-                            compareHighlight.wrappedValue = false
+                            pulseHighlight.wrappedValue = false
                         }
                     }
                 }
@@ -509,18 +510,24 @@ private enum Purity: String, CaseIterable, Identifiable {
                 Text("Enter metal, purity and weight above, then tap Appraise.")
             }
             .font(.footnote)
-            .foregroundColor(compareHighlight.wrappedValue ? .appPurple : .secondary)
-            .scaleEffect(compareHighlight.wrappedValue ? 1.06 : 1.0)
+            .foregroundColor(pulseHighlight.wrappedValue ? .appPurple : .secondary)
+            .scaleEffect(pulseHighlight.wrappedValue ? 1.06 : 1.0)
             .onAppear {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    compareHighlight.wrappedValue = true
+                    pulseHighlight.wrappedValue = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     withAnimation(.easeInOut(duration: 0.25)) {
-                        compareHighlight.wrappedValue = false
+                        pulseHighlight.wrappedValue = false
                     }
                 }
             }
         }
     }
 
+
+extension UIApplication {
+    func endEditing() {
+        sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
