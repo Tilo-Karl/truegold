@@ -10,6 +10,7 @@ Uploading a New Version (App Store Connect quirks):
         15.5.2 Attach a build under the Build section (Add Build). Apple requires a build before media uploads are accepted.
     6 Workaround if uploads still blocked: open “View All Sizes in Media Manager,” then return — this refreshes the uploader.
     7 Screenshots are per-device, but you only need them once (default locale). Apple reuses globally unless you add localizations.
+    8. when in app connect, to re use the old screen shots in the previous version, click "View All Sizes in Media Manager", select 6.5 and 6.9 and return back.
     
 App Store Submission Notes (True Gold)
 1. Disable export compliance prompt:
