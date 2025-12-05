@@ -13,6 +13,11 @@ private enum AppraisePrefs {
     static let purityKey   = "Appraise.lastPurity"
 }
 
+private enum ActiveField: Hashable {
+    case weight
+    case comparison
+}
+
 struct AppraiseView: View {
     @ObservedObject var viewModel: AppraiseViewModel
 
@@ -24,7 +29,8 @@ struct AppraiseView: View {
     @State private var currencyCode: String = "USD"
     @State private var comparisonPrice: String = ""
     @State private var pulseHighlight: Bool = false
-    @FocusState private var isInputFocused: Bool
+    @State private var scrollHintPulse: Bool = false
+    @FocusState private var activeField: ActiveField?
 
     // Units allowed for the currently selected metal
     private var allowedUnits: [Unit] { Unit.allowed(for: metal) }
@@ -70,7 +76,7 @@ var body: some View {
                         HStack(spacing: 12) {
                             TextField("Enter weight", text: $weight)
                                 .keyboardType(.decimalPad)
-                                .focused($isInputFocused)
+                                .focused($activeField, equals: .weight)
                             unitPicker()
                         }
                         HStack {
@@ -85,7 +91,8 @@ var body: some View {
                             viewModel,
                             comparisonPrice: $comparisonPrice,
                             pulseHighlight: $pulseHighlight,
-                            isInputFocused: $isInputFocused
+                            activeField: $activeField,
+                            scrollHintPulse: $scrollHintPulse
                         )
                     }
                 }
@@ -148,10 +155,12 @@ var body: some View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            appraiseCTA()
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+            if activeField != .comparison {
+                appraiseCTA()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+            }
         }
         .navigationTitle("Appraise")
         .toolbarBackground(Color.appPurple, for: .navigationBar)
@@ -177,7 +186,7 @@ func appraiseCTA() -> some View {
 
 // MARK: - Actions
 func handleAppraiseTap() {
-    isInputFocused = false
+    activeField = nil
     comparisonPrice = ""
     let sanitized = weight.replacingOccurrences(of: ",", with: ".")
     guard let input = Double(sanitized), input > 0 else {
@@ -410,11 +419,12 @@ private enum Purity: String, CaseIterable, Identifiable {
     // MARK: - Result Section Helper
     @MainActor // @MainActor: keep this view helper on the UI thread so it can safely read viewModel state
     @ViewBuilder
-    func resultSection(
+    private func resultSection(
         _ vm: AppraiseViewModel,
         comparisonPrice: Binding<String>,
         pulseHighlight: Binding<Bool>,
-        isInputFocused: FocusState<Bool>.Binding
+        activeField: FocusState<ActiveField?>.Binding,
+        scrollHintPulse: Binding<Bool>
     ) -> some View {
         if vm.isLoading {
             HStack { ProgressView(); Text("Appraising…") }
@@ -447,9 +457,33 @@ private enum Purity: String, CaseIterable, Identifiable {
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.appPurple)
                         .scaleEffect(pulseHighlight.wrappedValue ? 1.18 : 1.0)
-                    TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
-                        .keyboardType(.decimalPad)
-                        .focused(isInputFocused)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        // User input directly under the header
+                        TextField("Enter comparison price (\(r.currency))", text: comparisonPrice)
+                            .keyboardType(.decimalPad)
+                            .focused(activeField, equals: .comparison)
+
+                        // Blink / hint arrow on the right so the user knows there's more below (scroll)
+                        if activeField.wrappedValue == .comparison {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.appPurple)
+                                .opacity(scrollHintPulse.wrappedValue ? 1.0 : 0.2)
+                                .offset(y: scrollHintPulse.wrappedValue ? -3 : 3)
+                                .padding(.leading, 4)
+                                .onAppear {
+                                    // Strong, repeated blink while the comparison field is active
+                                    withAnimation(.easeInOut(duration: 0.45).repeatForever(autoreverses: true)) {
+                                        scrollHintPulse.wrappedValue = true
+                                    }
+                                }
+                                .onDisappear {
+                                    // Stop the blink when focus leaves the comparison field
+                                    scrollHintPulse.wrappedValue = false
+                                }
+                        }
+                    }
 
                     // Derived comparison rows (only when input is valid)
                     if let comp = Double(comparisonPrice.wrappedValue.replacingOccurrences(of: ",", with: ".")), comp > 0 {
@@ -457,22 +491,21 @@ private enum Purity: String, CaseIterable, Identifiable {
                         let pct = (diff / max(r.total, 0.000001)) * 100 // guard div-by-zero (defensive)
                         let isMarkup = diff >= 0
 
-                        HStack {
-                            Text("Comparison")
-                            Spacer()
-                            Text("\(r.currency) \(comp.formatted(.number.precision(.fractionLength(2))))")
-                                .monospacedDigit()
-                        }
+                        // Show the *result* line first, closer to the main price above
                         HStack {
                             Text(isMarkup ? "Markup" : "Discount")
                             Spacer()
                             Text("\(diff >= 0 ? "+" : "-")\(r.currency) \(abs(diff).formatted(.number.precision(.fractionLength(2)))) (\(String(format: "%0.1f", abs(pct)))%)")
                                 .monospacedDigit()
                                 .foregroundColor(isMarkup ? .red : .green)
-                            /*
-                            Text("\(diff >= 0 ? \"+\" : \"-\")\(r.currency) \(abs(diff).formatted(.number.precision(.fractionLength(2)))) (\(String(format: \"%0.1f\", abs(pct)))%)")
-                                
-                             */
+                        }
+
+                        // Then the "Comparison" header row with the shop price
+                        HStack {
+                            Text("Comparison")
+                            Spacer()
+                            Text("\(r.currency) \(comp.formatted(.number.precision(.fractionLength(2))))")
+                                .monospacedDigit()
                         }
                     } else if !comparisonPrice.wrappedValue.isEmpty {
                         // Soft validation hint
