@@ -29,11 +29,19 @@ App Store Submission Notes (True Gold)
     3.4 If you upload 6.9″ screenshots, they do not satisfy the 6.5″ slot — you must also upload at least one 6.5″ screenshot alongside the video.  
     3.5 Safest: supply both 6.5″ and 6.9″ screenshots.
     3.6 simulators for screen shots: iPhone11ProMax (6.5), iPhone16ProMax(6.9), iPad_Pro_13-inch_(M4).
+    3.7 duration: min: 15s max: 30sec
 
 4. ffmpeg (for scaling app preview videos):  
-    4.1 From an iPhone 11 Pro Max recording (1242×2688 portrait):  
-        ffmpeg -i INPUT.mov -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest -vf “scale=-2:1920,crop=886:1920” -r 30 -c:v libx264 -profile:v high -level 4.1 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 128k -ar 44100 -ac 2 OUTPUT_886x1920.mp4  
-    4.2 Notes:  
+    4.1 I downloaded ffmpeg, have to move the file to that folder in Ffmpeg folder in desktop.
+
+        ./ffmpeg -i TrueGoldiPhone11ProMaxiOS18_5_6_5.mp4 \
+  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 \
+  -shortest -vf "scale=-2:1920,crop=886:1920" \
+  -r 30 -c:v libx264 -profile:v high -level 4.1 -pix_fmt yuv420p \
+  -movflags +faststart -c:a aac -b:a 128k -ar 44100 -ac 2 \
+  TrueGoldiPhone11ProMaxiOS18_5_6_5_READY_886x1920.mp4
+  
+    4.2 Notes:
         - Add silent audio track if missing, or Apple may reject.  
         - Landscape variant:  
             ffmpeg -i INPUT.mov -vf “scale=1920:-2,crop=1920:886” -r 30 -c:v libx264 -profile:v high -level 4.1 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 128k -ar 44100 -ac 2 OUTPUT_1920x886.mp4  
